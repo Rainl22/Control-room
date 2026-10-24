@@ -4,7 +4,9 @@ import {
   attemptTransition,
   buildSeed,
   can,
+  canCoApproveLockedRuleChange,
   canPerformVerificationStep2,
+  lockedRuleChangeApproved,
   evaluate,
   evidenceId,
   merge,
@@ -70,6 +72,25 @@ interface CompanyState {
   reportMistake: (invoiceId: string, note: string) => Promise<ActionResult>;
   toggleRecoveryStep: (caseId: string, stepIndex: number) => ActionResult;
   addSupplierFact: (invoiceId: string, text: string) => ActionResult;
+  pendingRuleChanges: PendingRuleChange[];
+  fileRuleRequest: (ruleId: string | null, description: string) => ActionResult;
+  coApproveRuleChange: (requestId: string) => ActionResult;
+}
+
+/**
+ * A requested change the interface cannot apply directly: a locked-rule
+ * change (needs Manager + CFO co-approval; the requester cannot co-approve)
+ * or a new-logic request (pending until a developer ships a new ruleset).
+ */
+export interface PendingRuleChange {
+  id: string;
+  /** null for a new-logic request outside any existing rule. */
+  ruleId: string | null;
+  description: string;
+  requestedBy: string;
+  requestedAt: string;
+  approvals: Array<{ userId: string; role: 'operator' | 'manager' | 'cfo' }>;
+  status: 'pending' | 'co_approved';
 }
 
 /**
@@ -224,6 +245,7 @@ export const useCompany = create<CompanyState>((set, get) => {
     verifications: [],
     ruleHistory: [],
     recoveryCases: [],
+    pendingRuleChanges: [],
     audit: [],
     currentUserId: 'usr_dana',
     displayCurrency: 'USD',
@@ -231,7 +253,7 @@ export const useCompany = create<CompanyState>((set, get) => {
 
     init: async () => {
       if (get().status !== 'idle') return;
-      set({ status: 'processing', company: buildSeed(), processed: {}, decisions: [], reviews: [], verifications: [], audit: [], ruleHistory: [], recoveryCases: [] });
+      set({ status: 'processing', company: buildSeed(), processed: {}, decisions: [], reviews: [], verifications: [], audit: [], ruleHistory: [], recoveryCases: [], pendingRuleChanges: [] });
       const company = get().company!;
       const sources = toContextSources(company);
       const now = `${company.settings.demoToday}T09:00:00Z`;
@@ -262,7 +284,7 @@ export const useCompany = create<CompanyState>((set, get) => {
     },
 
     reset: async () => {
-      set({ status: 'idle', company: null, processed: {}, decisions: [], reviews: [], verifications: [], audit: [], ruleHistory: [], recoveryCases: [] });
+      set({ status: 'idle', company: null, processed: {}, decisions: [], reviews: [], verifications: [], audit: [], ruleHistory: [], recoveryCases: [], pendingRuleChanges: [] });
       await get().init();
     },
 
@@ -647,6 +669,63 @@ export const useCompany = create<CompanyState>((set, get) => {
       supplier.facts.push({ id: nextId('fact'), text, setBy: user.id, setAt: new Date().toISOString() });
       logAudit(invoiceId, 'user', user.id, `Supplier fact added for ${supplier.name}: "${text}"`);
       set((s) => ({ processed: { ...s.processed } }));
+      return { ok: true };
+    },
+
+    /**
+     * File a change the interface cannot make: a locked-rule change or a
+     * new-logic request. Logged as pending in the rule history. A finance
+     * manager cannot invent a rule — nothing changes behaviour until a
+     * developer ships a new ruleset version.
+     */
+    fileRuleRequest: (ruleId, description) => {
+      const { company, currentUserId } = get();
+      const user = company?.users.find((u) => u.id === currentUserId);
+      if (!user || !can(user.role, 'file_new_logic')) {
+        return { ok: false, refusal: 'Filing a rule-change request needs the Manager role or above.' };
+      }
+      const request: PendingRuleChange = {
+        id: nextId('req'),
+        ruleId,
+        description,
+        requestedBy: user.id,
+        requestedAt: new Date().toISOString(),
+        approvals: [],
+        status: 'pending',
+      };
+      set((s) => ({ pendingRuleChanges: [...s.pendingRuleChanges, request] }));
+      return { ok: true };
+    },
+
+    /**
+     * Co-approve a locked-rule change: the two approvers must be a Manager
+     * and the CFO, and the requester cannot be one of them (core permissions
+     * decide). Even co-approved, the change ships only as a new ruleset
+     * version by a developer — the interface records, it does not apply.
+     */
+    coApproveRuleChange: (requestId) => {
+      const { company, currentUserId, pendingRuleChanges } = get();
+      const user = company?.users.find((u) => u.id === currentUserId);
+      if (!user) return { ok: false, refusal: 'No user.' };
+      const request = pendingRuleChanges.find((r) => r.id === requestId);
+      if (!request || request.status !== 'pending') return { ok: false, refusal: 'No pending request.' };
+      if (!canCoApproveLockedRuleChange(user.role, request.requestedBy, user.id)) {
+        return {
+          ok: false,
+          refusal:
+            request.requestedBy === user.id
+              ? 'The person who requested a locked-rule change cannot co-approve it.'
+              : 'Co-approval needs the Manager role or the CFO.',
+        };
+      }
+      if (request.approvals.some((a) => a.userId === user.id)) {
+        return { ok: false, refusal: 'Already approved by this person.' };
+      }
+      request.approvals.push({ userId: user.id, role: user.role });
+      if (lockedRuleChangeApproved(request.requestedBy, request.approvals)) {
+        request.status = 'co_approved';
+      }
+      set((s) => ({ pendingRuleChanges: [...s.pendingRuleChanges] }));
       return { ok: true };
     },
 

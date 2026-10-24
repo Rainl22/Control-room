@@ -42,11 +42,13 @@ function paramDisplay(rule: Rule): string {
 
 function RuleCard({ rule }: { rule: Rule }) {
   const store = useCompany();
-  const { company, currentUserId, ruleHistory } = store;
+  const { company, currentUserId, ruleHistory, pendingRuleChanges } = store;
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<Record<string, number>>({});
   const [preview, setPreview] = useState<ReplayPreview | null>(null);
   const [refusal, setRefusal] = useState('');
+  const [requesting, setRequesting] = useState(false);
+  const [requestText, setRequestText] = useState('');
 
   const user = company!.users.find((u) => u.id === currentUserId)!;
   const config = PARAM_CONFIG[rule.id];
@@ -113,6 +115,19 @@ function RuleCard({ rule }: { rule: Rule }) {
             </p>
           ) : null}
         </div>
+        {rule.locked && !requesting ? (
+          <button
+            type="button"
+            onClick={() => {
+              setRequestText('');
+              setRefusal('');
+              setRequesting(true);
+            }}
+            className="rounded-md border border-ink/20 px-3 py-1.5 text-xs hover:border-ink/50"
+          >
+            Request change…
+          </button>
+        ) : null}
         {editable && !editing ? (
           <button
             type="button"
@@ -195,6 +210,41 @@ function RuleCard({ rule }: { rule: Rule }) {
         </div>
       ) : null}
 
+      {requesting ? (
+        <div className="mt-3 space-y-2 border-t border-canvas pt-3">
+          <input
+            className="w-full rounded-md border border-routine-tint bg-surface px-2 py-1.5 text-[13px]"
+            placeholder="Describe the change and why it is needed"
+            value={requestText}
+            onChange={(e) => setRequestText(e.target.value)}
+          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={!requestText.trim()}
+              onClick={() => {
+                const r = store.fileRuleRequest(rule.id, requestText.trim());
+                if (!r.ok) setRefusal(r.refusal);
+                else setRequesting(false);
+              }}
+              className="rounded-md bg-ink px-3 py-1.5 text-xs text-white disabled:opacity-40"
+            >
+              File request
+            </button>
+            <button type="button" onClick={() => setRequesting(false)} className="px-3 py-1.5 text-xs text-ink-muted">
+              Cancel
+            </button>
+          </div>
+          {refusal ? <GuardRefusal refusal={refusal} /> : null}
+        </div>
+      ) : null}
+
+      {pendingRuleChanges
+        .filter((r) => r.ruleId === rule.id)
+        .map((request) => (
+          <PendingRequest key={request.id} requestId={request.id} />
+        ))}
+
       {history.length > 0 ? (
         <div className="mt-3 border-t border-canvas pt-2">
           {history.map((h) => (
@@ -205,6 +255,100 @@ function RuleCard({ rule }: { rule: Rule }) {
           ))}
         </div>
       ) : null}
+    </article>
+  );
+}
+
+function PendingRequest({ requestId }: { requestId: string }) {
+  const store = useCompany();
+  const { company, pendingRuleChanges } = store;
+  const [refusal, setRefusal] = useState('');
+  const request = pendingRuleChanges.find((r) => r.id === requestId);
+  if (!request || !company) return null;
+  const nameOf = (id: string) => company.users.find((u) => u.id === id)?.name ?? id;
+
+  return (
+    <div className="mt-3 rounded-md bg-canvas p-3 text-[12px]">
+      <p>
+        <span className="font-medium">{request.status === 'co_approved' ? 'Co-approved change' : 'Pending change'}</span>{' '}
+        · requested by {nameOf(request.requestedBy)}: “{request.description}”
+      </p>
+      {request.approvals.length > 0 ? (
+        <p className="mt-1 text-ink-muted">
+          Approvals: {request.approvals.map((a) => `${nameOf(a.userId)} (${a.role})`).join(', ')}
+        </p>
+      ) : null}
+      {request.ruleId === null ? (
+        <p className="mt-1 text-ink-muted">Pending — sent to a developer.</p>
+      ) : request.status === 'co_approved' ? (
+        <p className="mt-1 text-ink-muted">
+          Co-approved. The change ships as a new ruleset version by a developer; nothing changes until then.
+        </p>
+      ) : (
+        <button
+          type="button"
+          onClick={() => {
+            setRefusal('');
+            const r = store.coApproveRuleChange(request.id);
+            if (!r.ok) setRefusal(r.refusal);
+          }}
+          className="mt-2 rounded-md border border-ink/20 px-3 py-1 text-xs hover:border-ink/50"
+        >
+          Co-approve as current user
+        </button>
+      )}
+      {refusal ? (
+        <div className="mt-2">
+          <GuardRefusal refusal={refusal} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function NewLogicCard() {
+  const store = useCompany();
+  const { pendingRuleChanges } = store;
+  const [text, setText] = useState('');
+  const [refusal, setRefusal] = useState('');
+  const requests = pendingRuleChanges.filter((r) => r.ruleId === null);
+
+  return (
+    <article className="rounded-card bg-surface p-5 shadow-card">
+      <h2 className="text-sm font-medium">Request new logic</h2>
+      <p className="mt-1 text-[12px] text-ink-muted">
+        Something the rule vocabulary cannot express. Filed to a developer and logged as pending — a finance
+        manager cannot invent a rule, and nothing changes behaviour until a new ruleset version ships.
+      </p>
+      <div className="mt-2 flex gap-2">
+        <input
+          className="w-full rounded-md border border-routine-tint bg-surface px-2 py-1.5 text-[13px]"
+          placeholder="e.g. Flag any invoice with a rounding-error total"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+        />
+        <button
+          type="button"
+          disabled={!text.trim()}
+          onClick={() => {
+            setRefusal('');
+            const r = store.fileRuleRequest(null, text.trim());
+            if (r.ok) setText('');
+            else setRefusal(r.refusal);
+          }}
+          className="whitespace-nowrap rounded-md bg-ink px-3 py-1.5 text-xs text-white disabled:opacity-40"
+        >
+          File request
+        </button>
+      </div>
+      {refusal ? (
+        <div className="mt-2">
+          <GuardRefusal refusal={refusal} />
+        </div>
+      ) : null}
+      {requests.map((request) => (
+        <PendingRequest key={request.id} requestId={request.id} />
+      ))}
     </article>
   );
 }
@@ -234,6 +378,7 @@ export default function RulesPage() {
         {company.ruleset.rules.map((rule) => (
           <RuleCard key={rule.id} rule={rule} />
         ))}
+        <NewLogicCard />
       </div>
     </main>
   );
