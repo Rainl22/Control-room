@@ -69,6 +69,7 @@ interface CompanyState {
   recoveryCases: RecoveryCase[];
   reportMistake: (invoiceId: string, note: string) => Promise<ActionResult>;
   toggleRecoveryStep: (caseId: string, stepIndex: number) => ActionResult;
+  addSupplierFact: (invoiceId: string, text: string) => ActionResult;
 }
 
 /**
@@ -626,6 +627,27 @@ export const useCompany = create<CompanyState>((set, get) => {
       }
 
       return { ok: false, refusal: 'A mistake is reported on an invoice that is proceeding, scheduled or paid.' };
+    },
+
+    /**
+     * Supplier-scope correction (Manager or CFO): a structured supplier fact,
+     * labelled with who set it and when. It enters the assembled context as
+     * evidence on every future evaluation of this supplier — nothing is
+     * learned silently. (Open invoices re-check live once live mode exists.)
+     */
+    addSupplierFact: (invoiceId, text) => {
+      const found = findInvoice(invoiceId);
+      if (!found) return { ok: false, refusal: 'Unknown invoice.' };
+      const { invoice, user } = found;
+      const { company } = get();
+      if (!can(user.role, 'supplier_scope_correction')) {
+        return { ok: false, refusal: 'A supplier-scope correction needs the Manager role or above.' };
+      }
+      const supplier = company!.suppliers.find((s) => s.id === invoice.supplierId)!;
+      supplier.facts.push({ id: nextId('fact'), text, setBy: user.id, setAt: new Date().toISOString() });
+      logAudit(invoiceId, 'user', user.id, `Supplier fact added for ${supplier.name}: "${text}"`);
+      set((s) => ({ processed: { ...s.processed } }));
+      return { ok: true };
     },
 
     toggleRecoveryStep: (caseId, stepIndex) => {

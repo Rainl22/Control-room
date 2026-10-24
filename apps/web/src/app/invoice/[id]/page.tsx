@@ -33,6 +33,8 @@ export default function InvoiceReview() {
   const [mistakeNote, setMistakeNote] = useState('');
   const [refusal, setRefusal] = useState('');
   const [resolvingReasonId, setResolvingReasonId] = useState<string | null>(null);
+  const [offerFact, setOfferFact] = useState(false);
+  const [factText, setFactText] = useState('');
 
   useEffect(() => {
     void init();
@@ -171,6 +173,25 @@ export default function InvoiceReview() {
             <GateChecklist gates={gates} />
           </section>
 
+          {supplier ? (
+            <section className="rounded-card bg-surface p-5 shadow-card">
+              <h2 className="mb-2 text-sm font-medium">Supplier</h2>
+              <p className="text-[13px]">
+                {supplier.name}{' '}
+                <span className="text-[11px] text-ink-muted">· {supplier.status} · {supplier.paymentTermsDays}-day terms</span>
+              </p>
+              {supplier.facts.length > 0 ? (
+                <ul className="mt-2 space-y-1">
+                  {supplier.facts.map((fact) => (
+                    <li key={fact.id} className="text-[12px] text-ink-muted">
+                      “{fact.text}” — {company.users.find((u) => u.id === fact.setBy)?.name}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </section>
+          ) : null}
+
           <section className="rounded-card bg-surface p-5 shadow-card">
             <h2 className="mb-3 text-sm font-medium">Consequence</h2>
             <p className="text-[13px] text-ink-muted">
@@ -220,9 +241,12 @@ export default function InvoiceReview() {
                         <button
                           type="button"
                           disabled={!note.trim()}
-                          onClick={() =>
-                            act(() => store.resolveReason(id, gate.reason.id, note.trim(), gate.reason.source === 'ai'))
-                          }
+                          onClick={() => {
+                            const isAI = gate.reason.source === 'ai';
+                            act(() => store.resolveReason(id, gate.reason.id, note.trim(), isAI));
+                            if (isAI) setOfferFact(true);
+                            setResolvingReasonId(null);
+                          }}
                           className="rounded-md bg-ink px-3 py-1.5 text-xs text-white disabled:opacity-40"
                         >
                           {gate.reason.source === 'ai' ? 'Dismiss — false alarm' : 'Accept with note'}
@@ -255,6 +279,39 @@ export default function InvoiceReview() {
                   )}
                 </div>
               ))}
+
+              {offerFact ? (
+                <div className="mb-3 rounded-md bg-ai-surface p-3">
+                  <p className="text-[12px] text-ink-muted">
+                    Stop this repeating: record a supplier fact (Manager or CFO). It enters the context on every
+                    future evaluation, labelled with who set it and when — nothing is learned silently.
+                  </p>
+                  <div className="mt-2 flex gap-2">
+                    <input
+                      className="w-full rounded-md border border-routine-tint bg-surface px-2 py-1.5 text-[13px]"
+                      placeholder="e.g. Bills monthly at a fixed amount with distinct invoice numbers"
+                      value={factText}
+                      onChange={(e) => setFactText(e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      disabled={!factText.trim()}
+                      onClick={() => {
+                        setRefusal('');
+                        const r = store.addSupplierFact(id, factText.trim());
+                        if (r.ok) setOfferFact(false);
+                        else setRefusal(r.refusal);
+                      }}
+                      className="whitespace-nowrap rounded-md bg-ink px-3 py-1.5 text-xs text-white disabled:opacity-40"
+                    >
+                      Add fact
+                    </button>
+                    <button type="button" onClick={() => setOfferFact(false)} className="px-2 text-xs text-ink-muted">
+                      Skip
+                    </button>
+                  </div>
+                </div>
+              ) : null}
 
               {invoice.state === 'awaiting_attention' ? (
                 <div className="space-y-2 border-t border-canvas pt-3">
