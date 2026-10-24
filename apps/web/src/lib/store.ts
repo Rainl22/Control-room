@@ -4,6 +4,7 @@ import {
   attemptTransition,
   buildSeed,
   can,
+  canPerformVerificationStep2,
   evidenceId,
   runPipeline,
   stagedOutputFor,
@@ -59,6 +60,8 @@ interface CompanyState {
   resolveReason: (invoiceId: string, reasonId: string, note: string, falseAlarm: boolean) => ActionResult;
   approve: (invoiceId: string) => ActionResult;
   reject: (invoiceId: string, reasonText: string) => ActionResult;
+  recordVerificationStep1: (invoiceId: string, spokeTo: string, outcome: 'confirmed' | 'not_confirmed') => ActionResult;
+  recordVerificationStep2: (invoiceId: string, outcome: 'confirmed' | 'rejected') => Promise<ActionResult>;
 }
 
 function genericCleanOutput(invoice: Invoice): AIOutput {
@@ -154,6 +157,30 @@ export const useCompany = create<CompanyState>((set, get) => {
     };
     set((s) => ({ decisions: [...s.decisions, decision] }));
     return decision;
+  };
+
+  /**
+   * Re-runs steps 2-6 after a context change. The authored run no longer
+   * matches the changed inputs, so without a live API the AI fails closed to
+   * Uncertainty (Unavailable) — exactly as the product would (brief §14).
+   * Once live mode is wired, this becomes a live call.
+   */
+  const reprocess = async (invoice: Invoice, auditNote: string) => {
+    const { company } = get();
+    const failClosed: AIClient = async () => {
+      throw new Error('No live AI configured and no recorded run matches the changed inputs.');
+    };
+    const result = await runPipeline(invoice, toContextSources(company!), {
+      ruleset: company!.ruleset,
+      aiClient: failClosed,
+      model: 'none',
+      provenance: 'live',
+      now: new Date().toISOString(),
+      runId: nextId(`run_${invoice.id}`),
+    });
+    set((s) => ({ processed: { ...s.processed, [invoice.id]: { result } } }));
+    logAudit(invoice.id, 'system', undefined, auditNote);
+    return result;
   };
 
   return {
@@ -290,6 +317,114 @@ export const useCompany = create<CompanyState>((set, get) => {
         logAudit(invoiceId, 'system', undefined, `Payment scheduled for the ${nextThursday} run.`);
       }
       set((s) => ({ processed: { ...s.processed } })); // trigger subscribers
+      return { ok: true };
+    },
+
+    /**
+     * Hard-stop verification, step 1 (brief section 7): an Operator or Manager
+     * contacts the supplier using the contact details already on the supplier
+     * record — never those printed on the invoice — and records the outcome.
+     */
+    recordVerificationStep1: (invoiceId, spokeTo, outcome) => {
+      const found = findInvoice(invoiceId);
+      if (!found) return { ok: false, refusal: 'Unknown invoice.' };
+      const { invoice, user } = found;
+      const { company, verifications } = get();
+      if (!can(user.role, 'verification_step1')) {
+        return { ok: false, refusal: 'Verification step 1 is performed by an Operator or a Manager, not the CFO.' };
+      }
+      if (verifications.some((v) => v.invoiceId === invoiceId && !v.step2)) {
+        return { ok: false, refusal: 'Step 1 is already recorded and awaiting confirmation.' };
+      }
+      const supplier = company!.suppliers.find((s) => s.id === invoice.supplierId);
+      const verification: Verification = {
+        id: nextId('ver'),
+        invoiceId,
+        step1: {
+          userId: user.id,
+          contactUsed: supplier?.verifiedContact.phone ?? '',
+          spokeTo,
+          outcome,
+          at: new Date().toISOString(),
+        },
+        createdAt: new Date().toISOString(),
+      };
+      set((s) => ({ verifications: [...s.verifications, verification] }));
+      logAudit(invoiceId, 'user', user.id, `Verification step 1 by ${user.name}: spoke to ${spokeTo}, outcome ${outcome.replace('_', ' ')}.`);
+      return { ok: true };
+    },
+
+    /**
+     * Verification step 2: a different person with the Manager role confirms
+     * or rejects. Confirmed: the bank details become the verified record and
+     * the invoice returns to attention with a pipeline re-run. Not confirmed:
+     * the invoice is rejected and the supplier flagged.
+     */
+    recordVerificationStep2: async (invoiceId, outcome) => {
+      const found = findInvoice(invoiceId);
+      if (!found) return { ok: false, refusal: 'Unknown invoice.' };
+      const { invoice, user } = found;
+      const { company, verifications } = get();
+      const verification = verifications.find((v) => v.invoiceId === invoiceId && !v.step2);
+      if (!verification) return { ok: false, refusal: 'No step-1 record is awaiting confirmation.' };
+      if (!canPerformVerificationStep2(user.role, verification.step1.userId, user.id)) {
+        return {
+          ok: false,
+          refusal:
+            verification.step1.userId === user.id
+              ? 'The person who performed step 1 cannot perform step 2. With one Manager on the team, this case now waits — a deliberate policy choice.'
+              : 'Verification step 2 needs the Manager role.',
+        };
+      }
+
+      verification.step2 = { userId: user.id, outcome, at: new Date().toISOString() };
+      set((s) => ({ verifications: [...s.verifications] }));
+
+      if (outcome === 'confirmed') {
+        // The account on the invoice becomes the verified record; the old one
+        // is superseded. An unverified supplier becomes verified.
+        const supplier = company!.suppliers.find((s) => s.id === invoice.supplierId)!;
+        const nowIso = new Date().toISOString();
+        for (const account of company!.bankAccounts) {
+          if (account.supplierId === supplier.id && account.status === 'verified') account.status = 'superseded';
+        }
+        company!.bankAccounts.push({
+          id: nextId('ba'),
+          supplierId: supplier.id,
+          holder: invoice.bankDetailsOnInvoice.holder,
+          accountNumber: invoice.bankDetailsOnInvoice.accountNumber,
+          country: invoice.bankDetailsOnInvoice.country,
+          status: 'verified',
+          verifiedBy: user.id,
+          verifiedAt: nowIso,
+        });
+        supplier.status = 'verified';
+        logAudit(invoiceId, 'user', user.id, `Verification confirmed by ${user.name}. Bank details marked verified on the supplier record.`);
+
+        const transition = attemptTransition(invoice.state, 'awaiting_attention', { verificationConfirmed: true });
+        if (!transition.allowed) return { ok: false, refusal: refusalOf(transition) };
+        invoice.state = 'awaiting_attention';
+        await reprocess(invoice, 'Re-evaluated after verification: the context changed.');
+        return { ok: true };
+      }
+
+      const transition = attemptTransition(invoice.state, 'rejected', {
+        verificationNotConfirmed: true,
+        actorRole: user.role,
+        rejectionReason: 'Supplier did not confirm the bank details.',
+      });
+      if (!transition.allowed) return { ok: false, refusal: refusalOf(transition) };
+      invoice.state = 'rejected';
+      const supplier = company!.suppliers.find((s) => s.id === invoice.supplierId)!;
+      supplier.facts.push({
+        id: nextId('fact'),
+        text: `Flagged: bank-detail verification failed on ${invoice.invoiceNumber}.`,
+        setBy: user.id,
+        setAt: new Date().toISOString(),
+      });
+      recordDecision(invoice, user, 'reject', 'Supplier did not confirm the bank details.');
+      logAudit(invoiceId, 'user', user.id, 'Verification not confirmed. Invoice rejected and supplier flagged.');
+      set((s) => ({ processed: { ...s.processed } }));
       return { ok: true };
     },
 

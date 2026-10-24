@@ -9,6 +9,7 @@ import { GateChecklist } from '@/components/GateChecklist';
 import { GuardRefusal } from '@/components/GuardRefusal';
 import { Header } from '@/components/Header';
 import { StatusBadge } from '@/components/StatusBadge';
+import { VerificationForm } from '@/components/VerificationForm';
 import { deriveGates, hasSignatureGate, nonSignatureGatesCleared } from '@/lib/gates';
 import { formatBase, formatCents, formatDate } from '@/lib/format';
 import { useCompany } from '@/lib/store';
@@ -185,12 +186,21 @@ export default function InvoiceReview() {
             <section className="rounded-card bg-surface p-5 shadow-card">
               <h2 className="mb-3 text-sm font-medium">Actions — acting as {user?.name}</h2>
 
-              {invoice.state === 'blocked' ? (
-                <p className="mb-3 text-[13px] text-ink-muted">
-                  Payment is blocked. The verification path must be completed first: contact the supplier using
-                  the contact details on the supplier record, then a second person confirms. (Verification form
-                  lands in the next build step.)
-                </p>
+              {invoice.state === 'blocked' && supplier ? (
+                <div className="mb-3">
+                  <p className="mb-2 text-[13px] text-ink-muted">
+                    Payment is blocked. Approval alone cannot clear this — the verification path must be
+                    completed first.
+                  </p>
+                  <VerificationForm
+                    supplier={supplier}
+                    verification={verifications.find((v) => v.invoiceId === id)}
+                    users={company.users}
+                    onStep1={(spokeTo, outcome) => store.recordVerificationStep1(id, spokeTo, outcome)}
+                    onStep2={(outcome) => store.recordVerificationStep2(id, outcome)}
+                    onRefusal={setRefusal}
+                  />
+                </div>
               ) : null}
 
               {openUncertainty.map((gate) => (

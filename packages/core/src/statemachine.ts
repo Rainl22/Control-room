@@ -34,6 +34,8 @@ export interface GuardContext {
   evidenceReceived?: boolean;
   /** The verification path is complete and confirmed (Blocked -> Awaiting attention). */
   verificationConfirmed?: boolean;
+  /** Verification step 2 ended not confirmed (Blocked -> Rejected, section 7). */
+  verificationNotConfirmed?: boolean;
   /** A re-run finished (Investigating -> Awaiting attention). */
   rerunComplete?: boolean;
   /** A correction record exists with its scope. */
@@ -125,6 +127,14 @@ const TRANSITIONS: Record<string, Guard> = {
       return refuse('An Operator may resolve Uncertainty up to $10,000. This amount needs a Manager.');
     }
     return allow;
+  },
+
+  // Section 7: if verification is not confirmed, the invoice is rejected and
+  // the supplier is flagged. Rejection still needs a Manager or the CFO.
+  'blocked->rejected': (ctx) => {
+    if (!ctx.verificationNotConfirmed) return refuse('A blocked invoice is rejected only when verification is not confirmed.');
+    if (!ctx.actorRole || ctx.actorRole === 'operator') return refuse('Rejection needs a Manager or the CFO.');
+    return ctx.rejectionReason ? allow : refuse('A rejection must record a reason.');
   },
 
   'awaiting_attention->rejected': (ctx) => {

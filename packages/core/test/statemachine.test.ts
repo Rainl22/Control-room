@@ -155,3 +155,21 @@ describe('approval covers the amount AND the rules triggered', () => {
     expect(result.allowed).toBe(false);
   });
 });
+
+describe('failed verification rejects the blocked invoice (section 7)', () => {
+  it('blocked -> rejected when verification is not confirmed, by a Manager with a reason', () => {
+    expect(
+      attemptTransition('blocked', 'rejected', {
+        verificationNotConfirmed: true,
+        actorRole: 'manager',
+        rejectionReason: 'Supplier could not confirm the new account.',
+      }),
+    ).toEqual({ allowed: true });
+  });
+
+  it('refuses without the failed verification, a reason, or a sufficient role', () => {
+    expect(attemptTransition('blocked', 'rejected', { actorRole: 'manager', rejectionReason: 'x' }).allowed).toBe(false);
+    expect(attemptTransition('blocked', 'rejected', { verificationNotConfirmed: true, actorRole: 'operator', rejectionReason: 'x' }).allowed).toBe(false);
+    expect(attemptTransition('blocked', 'rejected', { verificationNotConfirmed: true, actorRole: 'manager' }).allowed).toBe(false);
+  });
+});
