@@ -48,7 +48,7 @@ async function callModel(userPayload: string): Promise<unknown> {
     body: JSON.stringify({
       model: MODEL,
       max_tokens: 1500,
-      temperature: 0,
+      output_config: { effort: 'low' },
       system: SYSTEM_PROMPT,
       messages: [
         {

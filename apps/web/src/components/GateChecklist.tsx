@@ -11,16 +11,21 @@ export function GateChecklist({ gates }: { gates: GateView[] }) {
     return <p className="text-[13px] text-ink-muted">No gates. This invoice proceeds on its own.</p>;
   }
   return (
+    <>
+    <p className="mb-3 text-[11px] text-ink-muted">
+      Computed from facts — a recorded verification, a resolution, an approval. Nothing here can be ticked by
+      hand.
+    </p>
     <ol className="space-y-3">
       {gates.map((gate) => (
         <li key={gate.reason.id} className="flex items-start gap-2 text-[13px]">
           <span
             aria-hidden
-            className={`mt-0.5 inline-flex h-4 w-4 flex-none items-center justify-center rounded-full text-[10px] ${
-              gate.status === 'cleared' ? 'bg-ink text-white' : 'border border-ink-muted/40 text-transparent'
+            className={`mt-0.5 w-10 flex-none text-[10px] font-medium uppercase tracking-wide ${
+              gate.status === 'cleared' ? 'text-ink' : 'text-ink-muted/70'
             }`}
           >
-            ✓
+            {gate.status === 'cleared' ? '✓ done' : 'open'}
           </span>
           <span>
             <span className="mr-1.5 align-middle">
@@ -41,5 +46,6 @@ export function GateChecklist({ gates }: { gates: GateView[] }) {
         </li>
       ))}
     </ol>
+    </>
   );
 }

@@ -24,6 +24,26 @@ const ASSESSMENT_LABELS: Record<string, string> = {
 export function AIBriefPanel({ run, evidenceById }: { run: AIRun; evidenceById: Map<string, Evidence> }) {
   const citedCount = run.output ? new Set(run.output.findings.flatMap((f) => f.evidenceIds)).size : 0;
 
+  // A failed run produced no AI-written content: what follows is a system
+  // notice, rendered on a plain surface, not on the AI's sand panel.
+  if (run.status === 'failed') {
+    return (
+      <section className="rounded-card bg-surface p-5 shadow-card">
+        <div className="mb-3 flex items-center justify-between">
+          <span className="text-[11px] font-medium uppercase tracking-wide text-ink-muted">
+            System · AI run failed
+          </span>
+          <RunLabel run={run} />
+        </div>
+        <p className="text-sm text-ink">
+          The AI analysis could not be completed ({run.failureType}). The invoice fails closed to Uncertainty
+          (Unavailable) and a person must review. This is a technical failure, logged at once on the timeline —
+          not a judgment.
+        </p>
+      </section>
+    );
+  }
+
   return (
     <section className="rounded-card border-l-2 border-dotted border-ink-muted/40 bg-ai-surface p-5">
       <div className="mb-3 flex items-center justify-between">
@@ -33,13 +53,7 @@ export function AIBriefPanel({ run, evidenceById }: { run: AIRun; evidenceById: 
         <RunLabel run={run} />
       </div>
 
-      {run.status === 'failed' ? (
-        <p className="text-sm text-ink">
-          AI run failed ({run.failureType}). The invoice fails closed to Uncertainty (Unavailable); a person
-          must review. This is a technical failure, logged on the timeline — not a judgment.
-        </p>
-      ) : (
-        <>
+      <>
           <p className="text-sm leading-relaxed">{run.output?.brief}</p>
           {run.output && run.output.findings.length > 0 ? (
             <ul className="mt-4 space-y-3 border-t border-ink/10 pt-3">
@@ -59,8 +73,7 @@ export function AIBriefPanel({ run, evidenceById }: { run: AIRun; evidenceById: 
               ))}
             </ul>
           ) : null}
-        </>
-      )}
+      </>
     </section>
   );
 }

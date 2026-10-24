@@ -69,9 +69,10 @@ export function Header() {
         <button
           type="button"
           onClick={() => void reset()}
+          title="Start the demo over: re-seed the synthetic company and discard every decision made in this browser."
           className="rounded-md border border-routine-tint bg-surface px-2 py-1 text-ink-muted hover:text-ink"
         >
-          Reset company
+          Reset demo
         </button>
       </div>
     </header>

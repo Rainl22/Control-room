@@ -536,12 +536,17 @@ export const useCompany = create<CompanyState>((set, get) => {
     },
 
     /**
-     * Verification step 2: a different person with the Manager role confirms
-     * or rejects. Confirmed: the bank details become the verified record and
-     * the invoice returns to attention with a pipeline re-run. Not confirmed:
-     * the invoice is rejected and the supplier flagged.
+     * Verification step 2: a different person with the Manager role reviews
+     * the step-1 RECORD and confirms or rejects it. What a confirmed record
+     * then does depends on what step 1 found:
+     *   - supplier confirmed the details -> they become the verified record,
+     *     and the invoice returns to attention with a re-run;
+     *   - supplier did NOT confirm -> the invoice is rejected and the
+     *     supplier flagged.
+     * Rejecting the record voids it (step 1 was done wrongly); the invoice
+     * stays blocked and step 1 can be redone.
      */
-    recordVerificationStep2: async (invoiceId, outcome) => {
+    recordVerificationStep2: async (invoiceId, decision) => {
       const found = findInvoice(invoiceId);
       if (!found) return { ok: false, refusal: 'Unknown invoice.' };
       const { invoice, user } = found;
@@ -558,10 +563,18 @@ export const useCompany = create<CompanyState>((set, get) => {
         };
       }
 
-      verification.step2 = { userId: user.id, outcome, at: new Date().toISOString() };
+      verification.step2 = { userId: user.id, outcome: decision, at: new Date().toISOString() };
       set((s) => ({ verifications: [...s.verifications] }));
 
-      if (outcome === 'confirmed') {
+      if (decision === 'rejected') {
+        // The record itself was wrong (wrong contact, incomplete). Nothing
+        // changes on the invoice; step 1 must be redone by someone.
+        logAudit(invoiceId, 'user', user.id, `Step-1 record rejected by ${user.name}. Step 1 must be redone; the invoice stays blocked.`);
+        return { ok: true };
+      }
+
+      // The record stands. Apply what step 1 actually found.
+      if (verification.step1.outcome === 'confirmed') {
         // The account on the invoice becomes the verified record; the old one
         // is superseded. An unverified supplier becomes verified.
         const supplier = company!.suppliers.find((s) => s.id === invoice.supplierId)!;
@@ -589,6 +602,8 @@ export const useCompany = create<CompanyState>((set, get) => {
         return { ok: true };
       }
 
+      // Step 1 found the supplier did NOT confirm, and step 2 stands by that
+      // record: the invoice is rejected and the supplier flagged (section 7).
       const transition = attemptTransition(invoice.state, 'rejected', {
         verificationNotConfirmed: true,
         actorRole: user.role,

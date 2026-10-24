@@ -79,7 +79,10 @@ export async function POST(request: NextRequest) {
     body: JSON.stringify({
       model: MODEL,
       max_tokens: MAX_TOKENS,
-      temperature: 0,
+      // Low effort keeps the call inside serverless time limits; the
+      // judgment task is interpretive, not deep reasoning. No sampling
+      // params: current models reject them.
+      output_config: { effort: 'low' },
       system: SYSTEM_PROMPT,
       messages: [
         {

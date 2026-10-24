@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import type { Evidence } from '@control-room/core';
@@ -11,17 +12,23 @@ import { Header } from '@/components/Header';
 import { StatusBadge } from '@/components/StatusBadge';
 import { VerificationForm } from '@/components/VerificationForm';
 import { deriveGates, hasSignatureGate, nonSignatureGatesCleared } from '@/lib/gates';
+import { attentionRows } from '@/lib/queue';
 import { formatBase, formatCents, formatDate } from '@/lib/format';
 import { useCompany } from '@/lib/store';
 
+/**
+ * Lifecycle states worth a pill of their own. awaiting_attention and blocked
+ * are omitted: the class badge already says it, and two pills reading
+ * "Blocked" is one too many.
+ */
 const STATE_LABELS: Record<string, string> = {
-  ready: 'Ready — proceeding on its own',
-  awaiting_attention: 'Awaiting attention',
-  blocked: 'Blocked',
+  ready: 'Proceeding on its own',
   payment_scheduled: 'Payment scheduled',
   paid: 'Paid (simulated)',
   rejected: 'Rejected',
   recovery: 'In recovery',
+  on_hold: 'On hold',
+  investigating: 'Investigating',
 };
 
 export default function InvoiceReview() {
@@ -83,6 +90,19 @@ export default function InvoiceReview() {
   const firedRules = (result?.ruleResults ?? []).filter((r) => r.fired);
   const invoiceAudit = audit.filter((a) => a.invoiceId === id);
 
+  // Position in the attention queue (smart order), for prev/next navigation.
+  const queueRows = attentionRows(company.invoices, processed);
+  const queueIndex = queueRows.findIndex((r) => r.invoice.id === id);
+  const queuePosition =
+    queueIndex >= 0
+      ? {
+          index: queueIndex,
+          total: queueRows.length,
+          prevId: queueRows[queueIndex - 1]?.invoice.id ?? null,
+          nextId: queueRows[queueIndex + 1]?.invoice.id ?? null,
+        }
+      : null;
+
   const act = (fn: () => { ok: boolean; refusal?: string }) => {
     setRefusal('');
     const outcome = fn();
@@ -93,6 +113,27 @@ export default function InvoiceReview() {
     <main className="mx-auto max-w-6xl px-6 py-8">
       <Header />
 
+      <div className="mb-2 flex items-center justify-between text-xs">
+        <Link href="/queue" className="text-ink-muted hover:text-ink">
+          ← Queue
+        </Link>
+        {queuePosition ? (
+          <span className="flex items-center gap-2 text-ink-muted">
+            {queuePosition.index + 1} of {queuePosition.total} needing attention
+            {queuePosition.prevId ? (
+              <Link href={`/invoice/${queuePosition.prevId}`} className="rounded-md border border-ink/15 px-2 py-0.5 hover:border-ink/40">
+                ← Prev
+              </Link>
+            ) : null}
+            {queuePosition.nextId ? (
+              <Link href={`/invoice/${queuePosition.nextId}`} className="rounded-md border border-ink/15 px-2 py-0.5 hover:border-ink/40">
+                Next →
+              </Link>
+            ) : null}
+          </span>
+        ) : null}
+      </div>
+
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <h1 className="font-mono text-lg">{invoice.invoiceNumber}</h1>
         {result ? <StatusBadge outcomeClass={result.merge.finalClass} /> : null}
@@ -101,9 +142,11 @@ export default function InvoiceReview() {
           {formatBase(invoice.totalBaseCents, displayCurrency, company.settings)}
         </span>
         <span className="text-sm text-ink-muted">due {formatDate(invoice.dueDate)}</span>
-        <span className="ml-auto rounded-full bg-routine-tint px-2.5 py-1 text-xs text-ink-muted">
-          {STATE_LABELS[invoice.state] ?? invoice.state}
-        </span>
+        {STATE_LABELS[invoice.state] ? (
+          <span className="ml-auto rounded-full bg-routine-tint px-2.5 py-1 text-xs text-ink-muted">
+            {STATE_LABELS[invoice.state]}
+          </span>
+        ) : null}
       </div>
 
       <div className="grid grid-cols-3 gap-6">
@@ -216,10 +259,11 @@ export default function InvoiceReview() {
                   </p>
                   <VerificationForm
                     supplier={supplier}
-                    verification={verifications.find((v) => v.invoiceId === id)}
+                    verification={verifications.find((v) => v.invoiceId === id && !v.step2)}
                     users={company.users}
+                    currentUser={user!}
                     onStep1={(spokeTo, outcome) => store.recordVerificationStep1(id, spokeTo, outcome)}
-                    onStep2={(outcome) => store.recordVerificationStep2(id, outcome)}
+                    onStep2={(decision) => store.recordVerificationStep2(id, decision)}
                     onRefusal={setRefusal}
                   />
                 </div>
