@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { usd } from '../src/money.js';
-import { attemptTransition, declaredTransitions, INVOICE_STATES } from '../src/statemachine.js';
-import type { GuardContext, InvoiceState } from '../src/index.js';
+import { usd } from '../src/money';
+import { attemptTransition, declaredTransitions, INVOICE_STATES } from '../src/statemachine';
+import type { GuardContext, InvoiceState } from '../src/index';
 
 function allowed(from: InvoiceState, to: InvoiceState, ctx: GuardContext = {}) {
   return attemptTransition(from, to, ctx);

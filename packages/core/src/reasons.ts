@@ -1,4 +1,4 @@
-import { getRule, ruleRank } from './rules/catalogue.js';
+import { getRule, ruleRank } from './rules/catalogue';
 import type {
   AIFailureType,
   AIOutput,
@@ -7,8 +7,8 @@ import type {
   Reason,
   RuleResult,
   Ruleset,
-} from './types.js';
-import { CLASS_SEVERITY } from './types.js';
+} from './types';
+import { CLASS_SEVERITY } from './types';
 
 export function classMax(a: OutcomeClass, b: OutcomeClass): OutcomeClass {
   return CLASS_SEVERITY[a] >= CLASS_SEVERITY[b] ? a : b;

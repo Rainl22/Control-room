@@ -1,5 +1,5 @@
-import { usd } from './money.js';
-import type { Role, Rule, Ruleset } from './types.js';
+import { usd } from './money';
+import type { Role, Rule, Ruleset } from './types';
 
 /**
  * Roles and permissions, docs/BRIEF.md section 8. Enforced here and by the

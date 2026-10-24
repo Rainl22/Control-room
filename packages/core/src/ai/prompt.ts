@@ -1,5 +1,5 @@
-import type { AnalysisPackets } from '../packets.js';
-import type { InvoiceContext, RuleResult } from '../types.js';
+import type { AnalysisPackets } from '../packets';
+import type { InvoiceContext, RuleResult } from '../types';
 
 /**
  * Prompt assembly for the single structured AI call (step 5). The AI receives

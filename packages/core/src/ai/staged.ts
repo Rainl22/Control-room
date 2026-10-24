@@ -1,5 +1,5 @@
-import { evidenceId } from '../evidence.js';
-import type { AIOutput } from '../types.js';
+import { evidenceId } from '../evidence';
+import type { AIOutput } from '../types';
 
 /**
  * Staged examples (brief section 4): deliberately authored outputs that

@@ -1,5 +1,5 @@
-import { usd } from '../money.js';
-import type { BankAccount, PaymentAccount, Settings, Supplier, User } from '../types.js';
+import { usd } from '../money';
+import type { BankAccount, PaymentAccount, Settings, Supplier, User } from '../types';
 
 /**
  * Harbourline Supply Co. — the fictional company from docs/POLICY.md.

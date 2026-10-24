@@ -1,16 +1,16 @@
-import { makeEvidence } from './evidence.js';
-import type { Evidence, Invoice, InvoiceContext } from './types.js';
+import { makeEvidence } from './evidence';
+import type { Evidence, Invoice, InvoiceContext } from './types';
 
 /**
  * Minimal database shape that context assembly reads from. The app's in-memory
  * store satisfies this; the core never imports the store itself.
  */
 export interface ContextSources {
-  suppliers: import('./types.js').Supplier[];
-  bankAccounts: import('./types.js').BankAccount[];
-  purchaseOrders: import('./types.js').PurchaseOrder[];
+  suppliers: import('./types').Supplier[];
+  bankAccounts: import('./types').BankAccount[];
+  purchaseOrders: import('./types').PurchaseOrder[];
   invoices: Invoice[];
-  payments: import('./types.js').Payment[];
+  payments: import('./types').Payment[];
   rulesetVersion: number;
 }
 

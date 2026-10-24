@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { unknownEvidenceIds } from '../evidence.js';
-import type { AIFailureType, AIOutput } from '../types.js';
+import { unknownEvidenceIds } from '../evidence';
+import type { AIFailureType, AIOutput } from '../types';
 
 /**
  * The AI output contract, docs/BRIEF.md section 4. Anything that fails

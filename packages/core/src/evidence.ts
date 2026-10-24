@@ -1,4 +1,4 @@
-import type { Evidence, EvidenceType } from './types.js';
+import type { Evidence, EvidenceType } from './types';
 
 /** Stable, readable evidence id, e.g. ev:po:PO-1042:total */
 export function evidenceId(entity: string, entityId: string, fieldPath: string): string {

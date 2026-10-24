@@ -1,9 +1,9 @@
-import { runAIJudgment, type AIClient } from './ai/run.js';
-import { assembleContext, type ContextSources } from './context.js';
-import { merge, type AIRunOutcome, type MergeResult } from './merge.js';
-import { buildPackets, DEFAULT_PACKET_PARAMS, type AnalysisPackets, type PacketParams } from './packets.js';
-import { evaluate } from './rules/engine.js';
-import type { AIProvenance, AIRun, Invoice, InvoiceContext, RuleResult, Ruleset } from './types.js';
+import { runAIJudgment, type AIClient } from './ai/run';
+import { assembleContext, type ContextSources } from './context';
+import { merge, type AIRunOutcome, type MergeResult } from './merge';
+import { buildPackets, DEFAULT_PACKET_PARAMS, type AnalysisPackets, type PacketParams } from './packets';
+import { evaluate } from './rules/engine';
+import type { AIProvenance, AIRun, Invoice, InvoiceContext, RuleResult, Ruleset } from './types';
 
 /**
  * Steps 2-6 of the decision flow: context assembly, rule evaluation, analysis

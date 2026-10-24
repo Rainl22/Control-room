@@ -1,5 +1,5 @@
-import { can, managerApprovalLimitCents } from './permissions.js';
-import type { CorrectionScope, InvoiceState, OutcomeClass, Role, Ruleset } from './types.js';
+import { can, managerApprovalLimitCents } from './permissions';
+import type { CorrectionScope, InvoiceState, OutcomeClass, Role, Ruleset } from './types';
 
 /**
  * The state machine, docs/BRIEF.md section 6. The interface hides buttons a

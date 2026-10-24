@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { evidenceId } from '../src/evidence.js';
-import { merge } from '../src/merge.js';
-import { gatesInResolutionOrder, primaryReason, sortReasons } from '../src/reasons.js';
-import { evaluate } from '../src/rules/engine.js';
-import type { AIOutput } from '../src/types.js';
-import { CLASS_SEVERITY } from '../src/types.js';
-import { seedAndContext } from './helpers.js';
+import { evidenceId } from '../src/evidence';
+import { merge } from '../src/merge';
+import { gatesInResolutionOrder, primaryReason, sortReasons } from '../src/reasons';
+import { evaluate } from '../src/rules/engine';
+import type { AIOutput } from '../src/types';
+import { CLASS_SEVERITY } from '../src/types';
+import { seedAndContext } from './helpers';
 
 function aiOutput(proposedClass: AIOutput['proposedClass'], evidenceRef: string): AIOutput {
   return {

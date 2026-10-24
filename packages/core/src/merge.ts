@@ -1,6 +1,6 @@
-import { classMax, reasonsFromAIOutput, reasonsFromRuleResults, sortReasons, unavailableReason } from './reasons.js';
-import { ruleFloor } from './rules/engine.js';
-import type { AIFailureType, AIOutput, Invoice, OutcomeClass, Reason, RuleResult, Ruleset } from './types.js';
+import { classMax, reasonsFromAIOutput, reasonsFromRuleResults, sortReasons, unavailableReason } from './reasons';
+import { ruleFloor } from './rules/engine';
+import type { AIFailureType, AIOutput, Invoice, OutcomeClass, Reason, RuleResult, Ruleset } from './types';
 
 export type AIRunOutcome =
   | { status: 'succeeded'; output: AIOutput }

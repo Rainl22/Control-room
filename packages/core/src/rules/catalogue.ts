@@ -1,5 +1,5 @@
-import { usd } from '../money.js';
-import type { Rule, Ruleset } from '../types.js';
+import { usd } from '../money';
+import type { Rule, Ruleset } from '../types';
 
 const EFFECTIVE = '2025-01-01';
 

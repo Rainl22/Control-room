@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { usd } from '../src/money.js';
+import { usd } from '../src/money';
 import {
   can,
   canCoApproveLockedRuleChange,
   canPerformVerificationStep2,
   lockedRuleChangeApproved,
-} from '../src/permissions.js';
-import { getRule, starterRuleset } from '../src/rules/catalogue.js';
-import type { Role } from '../src/types.js';
+} from '../src/permissions';
+import { getRule, starterRuleset } from '../src/rules/catalogue';
+import type { Role } from '../src/types';
 
 const ROLES: Role[] = ['operator', 'manager', 'cfo'];
 

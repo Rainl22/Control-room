@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { cents, toBaseCents, toDisplayCents, usd } from '../src/money.js';
-import { SETTINGS } from '../src/seed/company.js';
+import { cents, toBaseCents, toDisplayCents, usd } from '../src/money';
+import { SETTINGS } from '../src/seed/company';
 
 describe('money: integer cents plus ISO currency', () => {
   it('converts major units to integer cents', () => {

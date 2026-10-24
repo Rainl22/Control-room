@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { usd } from '../src/money.js';
-import { buildSeed } from '../src/seed/index.js';
+import { usd } from '../src/money';
+import { buildSeed } from '../src/seed/index';
 
 describe('seed data matches docs/POLICY.md', () => {
   const seed = buildSeed();

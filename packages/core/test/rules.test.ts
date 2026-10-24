@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { usd } from '../src/money.js';
-import { evaluate, ruleFloor } from '../src/rules/engine.js';
-import { buildSeed, FIXTURE_EXPECTATIONS } from '../src/seed/index.js';
-import { firedRuleIds, seedAndContext, syntheticInvoice } from './helpers.js';
+import { usd } from '../src/money';
+import { evaluate, ruleFloor } from '../src/rules/engine';
+import { buildSeed, FIXTURE_EXPECTATIONS } from '../src/seed/index';
+import { firedRuleIds, seedAndContext, syntheticInvoice } from './helpers';
 
 describe('fixture anchors (docs/POLICY.md) produce the expected rule floor', () => {
   for (const expectation of FIXTURE_EXPECTATIONS) {

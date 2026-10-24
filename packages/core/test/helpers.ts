@@ -1,8 +1,8 @@
-import { assembleContext } from '../src/context.js';
-import { toBaseCents, usd } from '../src/money.js';
-import type { SeedData } from '../src/seed/index.js';
-import { buildSeed, toContextSources } from '../src/seed/index.js';
-import type { CurrencyCode, Invoice, InvoiceContext } from '../src/types.js';
+import { assembleContext } from '../src/context';
+import { toBaseCents, usd } from '../src/money';
+import type { SeedData } from '../src/seed/index';
+import { buildSeed, toContextSources } from '../src/seed/index';
+import type { CurrencyCode, Invoice, InvoiceContext } from '../src/types';
 
 export const NOW = '2025-10-14T09:00:00Z';
 

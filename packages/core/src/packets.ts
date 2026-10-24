@@ -1,5 +1,5 @@
-import { evidenceId, makeEvidence } from './evidence.js';
-import type { Evidence, Invoice, InvoiceContext, PurchaseOrderLine } from './types.js';
+import { evidenceId, makeEvidence } from './evidence';
+import type { Evidence, Invoice, InvoiceContext, PurchaseOrderLine } from './types';
 
 /**
  * Step 4 of the pipeline: analysis packets. Anything countable, comparable or

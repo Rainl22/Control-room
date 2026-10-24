@@ -1,4 +1,4 @@
-import { evidenceId } from '../evidence.js';
+import { evidenceId } from '../evidence';
 import type {
   ConditionType,
   Invoice,
@@ -7,8 +7,8 @@ import type {
   Rule,
   RuleResult,
   Ruleset,
-} from '../types.js';
-import { CLASS_SEVERITY } from '../types.js';
+} from '../types';
+import { CLASS_SEVERITY } from '../types';
 
 /**
  * The rule engine: a pure function. No AI, no network, no side effects.

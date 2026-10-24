@@ -1,7 +1,7 @@
-import type { AnalysisPackets } from '../packets.js';
-import type { AIProvenance, AIRun, InvoiceContext, RuleResult } from '../types.js';
-import { buildUserPayload, PROMPT_VERSION, SYSTEM_PROMPT } from './prompt.js';
-import { validateAIOutput } from './schema.js';
+import type { AnalysisPackets } from '../packets';
+import type { AIProvenance, AIRun, InvoiceContext, RuleResult } from '../types';
+import { buildUserPayload, PROMPT_VERSION, SYSTEM_PROMPT } from './prompt';
+import { validateAIOutput } from './schema';
 
 /**
  * Step 5 of the pipeline. The network client is injected so this module stays

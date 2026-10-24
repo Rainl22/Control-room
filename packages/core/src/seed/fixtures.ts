@@ -1,4 +1,4 @@
-import { usd } from '../money.js';
+import { usd } from '../money';
 import type {
   BankDetailsOnInvoice,
   Invoice,
@@ -7,8 +7,8 @@ import type {
   OutcomeClass,
   Payment,
   PurchaseOrder,
-} from '../types.js';
-import { verifiedAccountFor } from './company.js';
+} from '../types';
+import { verifiedAccountFor } from './company';
 
 /**
  * Fixture anchors from docs/POLICY.md. IDs and amounts are fixed; dates are

@@ -1,6 +1,6 @@
-import { usd } from '../money.js';
-import type { Invoice, Payment, PurchaseOrder } from '../types.js';
-import { verifiedAccountFor } from './company.js';
+import { usd } from '../money';
+import type { Invoice, Payment, PurchaseOrder } from '../types';
+import { verifiedAccountFor } from './company';
 
 /**
  * Deterministic filler: ~49 Routine invoices so the eight fixtures stand out

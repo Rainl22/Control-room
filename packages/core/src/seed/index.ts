@@ -1,5 +1,5 @@
-import type { ContextSources } from '../context.js';
-import { starterRuleset } from '../rules/catalogue.js';
+import type { ContextSources } from '../context';
+import { starterRuleset } from '../rules/catalogue';
 import type {
   BankAccount,
   Invoice,
@@ -10,16 +10,16 @@ import type {
   Settings,
   Supplier,
   User,
-} from '../types.js';
-import { BANK_ACCOUNTS, PAYMENT_ACCOUNTS, SETTINGS, SUPPLIERS, USERS } from './company.js';
-import { buildFiller } from './filler.js';
+} from '../types';
+import { BANK_ACCOUNTS, PAYMENT_ACCOUNTS, SETTINGS, SUPPLIERS, USERS } from './company';
+import { buildFiller } from './filler';
 import {
   FIXTURE_EXPECTATIONS,
   FIXTURE_INVOICES,
   FIXTURE_PAYMENTS,
   FIXTURE_POS,
   PRIOR_INVOICES,
-} from './fixtures.js';
+} from './fixtures';
 
 export interface SeedData {
   settings: Settings;
@@ -69,6 +69,6 @@ export function toContextSources(seed: SeedData): ContextSources {
   };
 }
 
-export { FIXTURE_EXPECTATIONS } from './fixtures.js';
-export type { FixtureExpectation } from './fixtures.js';
-export { addDays, thursdayOnOrBefore } from './filler.js';
+export { FIXTURE_EXPECTATIONS } from './fixtures';
+export type { FixtureExpectation } from './fixtures';
+export { addDays, thursdayOnOrBefore } from './filler';

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { usd } from '../src/money.js';
-import { buildPackets, DEFAULT_PACKET_PARAMS, similarity } from '../src/packets.js';
-import { seedAndContext, NOW } from './helpers.js';
+import { usd } from '../src/money';
+import { buildPackets, DEFAULT_PACKET_PARAMS, similarity } from '../src/packets';
+import { seedAndContext, NOW } from './helpers';
 
 describe('J1 near-duplicate scoring (computed in code, never by the AI)', () => {
   it('fixture 2a: INV-2041 scores INV-2014 as a candidate at or above 0.75', () => {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { validateAIOutput } from '../src/ai/schema.js';
-import { evidenceId } from '../src/evidence.js';
-import { seedAndContext } from './helpers.js';
+import { validateAIOutput } from '../src/ai/schema';
+import { evidenceId } from '../src/evidence';
+import { seedAndContext } from './helpers';
 
 const validOutput = (evidenceRef: string) => ({
   findings: [

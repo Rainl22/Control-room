@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import type { AIClient } from '../src/ai/run.js';
-import { STAGED_OUTPUTS } from '../src/ai/staged.js';
-import { evidenceId } from '../src/evidence.js';
-import { runPipeline } from '../src/pipeline.js';
-import { buildSeed, toContextSources } from '../src/seed/index.js';
-import type { AIOutput, Invoice } from '../src/types.js';
-import { NOW } from './helpers.js';
+import type { AIClient } from '../src/ai/run';
+import { STAGED_OUTPUTS } from '../src/ai/staged';
+import { evidenceId } from '../src/evidence';
+import { runPipeline } from '../src/pipeline';
+import { buildSeed, toContextSources } from '../src/seed/index';
+import type { AIOutput, Invoice } from '../src/types';
+import { NOW } from './helpers';
 
 const MODEL = 'test-model';
 

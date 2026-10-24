@@ -1,4 +1,4 @@
-import type { CurrencyCode, Settings } from './types.js';
+import type { CurrencyCode, Settings } from './types';
 
 /** Dollars (or pounds/euros) to integer cents. Fails on non-integer results. */
 export function cents(majorUnits: number): number {
