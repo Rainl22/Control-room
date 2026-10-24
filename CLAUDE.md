@@ -19,4 +19,10 @@ Portfolio prototype: a supervision layer for AI-run accounts payable. Read `docs
 Phase 1 first (brief section 16), then Phase 2 routine sampling. `docs/POLICY.md` defines the fictional company, roster, accounts, suppliers and fixture anchors; seed data must match it. Next: types/schema, then build.
 
 ## Commands
-None yet. Add test and dev commands here once the project is scaffolded.
+- `npm test` — run all workspace tests (core: vitest)
+- `npm run typecheck` — typecheck all workspaces
+- Core package lives in `packages/core` (pure TS, no UI imports). The web app will live in `apps/web`.
+
+## Stack decisions (agreed with Rain)
+- Next.js (App Router) for the app; deploy target is Netlify.
+- No SQLite: deterministic seed in code, in-memory store behind a repository interface.
