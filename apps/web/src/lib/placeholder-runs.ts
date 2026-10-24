@@ -69,7 +69,9 @@ export const PLACEHOLDER_OUTPUTS: Record<string, AIOutput> = {
         evidenceIds: [ev('invoice', 'INV-4410', 'total'), ev('po', 'PO-5640', 'total')],
       },
     ],
-    proposedClass: 'authority',
+    // The AI's own findings support proceeding; the signature requirement is
+    // R08's floor, applied in code. The AI never restates a rule as its own.
+    proposedClass: 'routine',
     proposedAction: 'approve',
     brief:
       'Everything on this Delmar Industrial Equipment invoice checks out: the amount matches the purchase order exactly and the payment details match the verified record. Policy requires a named person to sign for any amount above $10,000. A Manager can approve this one.',

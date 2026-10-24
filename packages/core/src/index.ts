@@ -19,3 +19,5 @@ export { runPipeline } from './pipeline';
 export type { PipelineOptions, PipelineResult } from './pipeline';
 export { buildSeed, toContextSources, FIXTURE_EXPECTATIONS, addDays, thursdayOnOrBefore } from './seed/index';
 export type { SeedData, FixtureExpectation } from './seed/index';
+export { replayRuleChange, withRuleParameters } from './replay';
+export type { ReplayPreview, ReplayChange } from './replay';

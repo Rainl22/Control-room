@@ -5,7 +5,9 @@ import {
   buildSeed,
   can,
   canPerformVerificationStep2,
+  evaluate,
   evidenceId,
+  merge,
   runPipeline,
   stagedOutputFor,
   thursdayOnOrBefore,
@@ -62,6 +64,19 @@ interface CompanyState {
   reject: (invoiceId: string, reasonText: string) => ActionResult;
   recordVerificationStep1: (invoiceId: string, spokeTo: string, outcome: 'confirmed' | 'not_confirmed') => ActionResult;
   recordVerificationStep2: (invoiceId: string, outcome: 'confirmed' | 'rejected') => Promise<ActionResult>;
+  changeRuleParameter: (ruleId: string, newParameters: Record<string, unknown>) => ActionResult;
+  ruleHistory: RuleChangeEntry[];
+}
+
+export interface RuleChangeEntry {
+  id: string;
+  ruleId: string;
+  rulesetVersion: number;
+  previous: Record<string, unknown>;
+  next: Record<string, unknown>;
+  changedBy: string;
+  effectiveFrom: string;
+  at: string;
 }
 
 function genericCleanOutput(invoice: Invoice): AIOutput {
@@ -189,6 +204,7 @@ export const useCompany = create<CompanyState>((set, get) => {
     decisions: [],
     reviews: [],
     verifications: [],
+    ruleHistory: [],
     audit: [],
     currentUserId: 'usr_dana',
     displayCurrency: 'USD',
@@ -196,7 +212,7 @@ export const useCompany = create<CompanyState>((set, get) => {
 
     init: async () => {
       if (get().status !== 'idle') return;
-      set({ status: 'processing', company: buildSeed(), processed: {}, decisions: [], reviews: [], verifications: [], audit: [] });
+      set({ status: 'processing', company: buildSeed(), processed: {}, decisions: [], reviews: [], verifications: [], audit: [], ruleHistory: [] });
       const company = get().company!;
       const sources = toContextSources(company);
       const now = `${company.settings.demoToday}T09:00:00Z`;
@@ -227,7 +243,7 @@ export const useCompany = create<CompanyState>((set, get) => {
     },
 
     reset: async () => {
-      set({ status: 'idle', company: null, processed: {}, decisions: [], reviews: [], verifications: [], audit: [] });
+      set({ status: 'idle', company: null, processed: {}, decisions: [], reviews: [], verifications: [], audit: [], ruleHistory: [] });
       await get().init();
     },
 
@@ -425,6 +441,82 @@ export const useCompany = create<CompanyState>((set, get) => {
       recordDecision(invoice, user, 'reject', 'Supplier did not confirm the bank details.');
       logAudit(invoiceId, 'user', user.id, 'Verification not confirmed. Invoice rejected and supplier flagged.');
       set((s) => ({ processed: { ...s.processed } }));
+      return { ok: true };
+    },
+
+    /**
+     * Edit one parameter of one existing rule: permission check, a new ruleset
+     * version with an effective date, rule history, and re-evaluation of every
+     * open invoice. The existing AI run is kept — only the rule floor moved —
+     * and every state change still goes through the guards (a rule change is
+     * a correction, scope rule_parameter).
+     */
+    changeRuleParameter: (ruleId, newParameters) => {
+      const { company, currentUserId, processed } = get();
+      if (!company) return { ok: false, refusal: 'No company loaded.' };
+      const user = company.users.find((u) => u.id === currentUserId)!;
+      const rule = company.ruleset.rules.find((r) => r.id === ruleId);
+      if (!rule) return { ok: false, refusal: `Unknown rule ${ruleId}.` };
+      if (rule.locked) {
+        return { ok: false, refusal: 'This rule is locked. Changing it needs a Manager and the CFO to co-approve, and the requester cannot co-approve.' };
+      }
+      if (!can(user.role, 'edit_rule_parameter', { rule })) {
+        return {
+          ok: false,
+          refusal:
+            user.role === 'manager'
+              ? 'Only the CFO may edit this rule.'
+              : 'Editing rule parameters needs the Manager role or above.',
+        };
+      }
+
+      const previous = { ...rule.parameters };
+      rule.parameters = { ...rule.parameters, ...newParameters };
+      rule.version += 1;
+      rule.effectiveFrom = company.settings.demoToday;
+      company.ruleset.version += 1;
+
+      const entry: RuleChangeEntry = {
+        id: nextId('rch'),
+        ruleId,
+        rulesetVersion: company.ruleset.version,
+        previous,
+        next: { ...rule.parameters },
+        changedBy: user.id,
+        effectiveFrom: rule.effectiveFrom,
+        at: new Date().toISOString(),
+      };
+      set((s) => ({ ruleHistory: [...s.ruleHistory, entry] }));
+
+      // Re-evaluate every open invoice under the new ruleset, keeping each
+      // invoice's existing AI run: its inputs did not change, only the floor.
+      const open = company.invoices.filter((i) =>
+        ['ready', 'awaiting_attention', 'blocked'].includes(i.state),
+      );
+      for (const invoice of open) {
+        const record = processed[invoice.id];
+        if (!record) continue;
+        const toChecking = attemptTransition(invoice.state, 'checking', { correction: { scope: 'rule_parameter' } });
+        if (!toChecking.allowed) continue;
+        const context = record.result.context;
+        const ruleResults = evaluate(invoice, context, company.ruleset);
+        const run = record.result.aiRun;
+        const outcome =
+          run.status === 'succeeded' && run.output
+            ? ({ status: 'succeeded', output: run.output } as const)
+            : ({ status: 'failed', failureType: run.failureType ?? 'error' } as const);
+        const merged = merge(invoice, ruleResults, outcome, company.ruleset);
+        const target =
+          merged.finalClass === 'routine' ? 'ready' : merged.finalClass === 'hard_stop' ? 'blocked' : 'awaiting_attention';
+        const routed = attemptTransition('checking', target, { finalClass: merged.finalClass });
+        if (routed.allowed && invoice.state !== target) {
+          invoice.state = target;
+          logAudit(invoice.id, 'system', undefined, `Re-evaluated after ${ruleId} changed (ruleset v${company.ruleset.version}); class is now ${merged.finalClass}.`);
+        }
+        set((s) => ({
+          processed: { ...s.processed, [invoice.id]: { result: { ...record.result, ruleResults, merge: merged } } },
+        }));
+      }
       return { ok: true };
     },
 

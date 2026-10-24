@@ -16,9 +16,19 @@ export function Header() {
   return (
     <header className="mb-8 flex items-baseline justify-between gap-4">
       <div>
-        <Link href="/" className="font-display text-xl font-semibold hover:underline">
-          Control Room
-        </Link>
+        <div className="flex items-baseline gap-4">
+          <Link href="/" className="font-display text-xl font-semibold hover:underline">
+            Control Room
+          </Link>
+          <nav className="flex gap-3 text-xs text-ink-muted">
+            <Link href="/" className="hover:text-ink">
+              Queue
+            </Link>
+            <Link href="/rules" className="hover:text-ink">
+              Rules
+            </Link>
+          </nav>
+        </div>
         <p className="text-xs text-ink-muted">
           Harbourline Supply Co. · concept &amp; working simulation · all data synthetic
         </p>
