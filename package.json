@@ -8,6 +8,10 @@
   ],
   "scripts": {
     "test": "npm run test --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "record": "tsx scripts/record-runs.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.15"
   }
 }

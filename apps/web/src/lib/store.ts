@@ -33,6 +33,18 @@ import { create } from 'zustand';
 import { deriveGates, hardStopActive, hasSignatureGate, nonSignatureGatesCleared, resolveActionId } from './gates';
 import { liveAvailability, liveClient } from './live-client';
 import { PLACEHOLDER_OUTPUTS } from './placeholder-runs';
+import recordedRunsFile from './recorded-runs.json';
+
+/** Genuine model runs captured by scripts/record-runs.ts. Never authored. */
+interface RecordedRun {
+  invoiceId: string;
+  model: string;
+  promptVersion: string;
+  inputHash: string;
+  recordedAt: string;
+  output: AIOutput;
+}
+const RECORDED_RUNS = (recordedRunsFile as { runs: Record<string, RecordedRun> }).runs;
 
 /**
  * The in-memory company store. It lives in the visitor's browser, so every
@@ -144,19 +156,40 @@ function genericCleanOutput(invoice: Invoice): AIOutput {
  */
 const GENUINE_FIXTURES = new Set(['inv_1187', 'inv_2041', 'inv_3302', 'inv_4410', 'inv_5075']);
 
-function resolveClient(
-  invoice: Invoice,
-  live: boolean,
-  liveModel: string,
-): { client: AIClient; provenance: 'live' | 'recorded' | 'staged'; model: string } {
+interface ResolvedClient {
+  client: AIClient;
+  provenance: 'live' | 'recorded' | 'staged';
+  model: string;
+  /** For recorded runs: the time the genuine run was captured. */
+  runAt?: string;
+}
+
+function recordedClient(invoiceId: string): ResolvedClient | undefined {
+  const recording = RECORDED_RUNS[invoiceId];
+  if (!recording) return undefined;
+  return {
+    client: async () => recording.output,
+    provenance: 'recorded',
+    model: recording.model,
+    runAt: recording.recordedAt,
+  };
+}
+
+/**
+ * Demo-mode decision (brief section 14): live by default on the genuine
+ * fixtures, automatic fallback to the recorded run when live is unavailable
+ * or fails, staged failures always pinned, and the filler never spends tokens.
+ */
+function resolveClient(invoice: Invoice, live: boolean, liveModel: string): ResolvedClient {
   const staged = stagedOutputFor(invoice.id);
   if (staged) return { client: async () => staged, provenance: 'staged', model: 'authored' };
   if (live && GENUINE_FIXTURES.has(invoice.id)) {
     return { client: liveClient, provenance: 'live', model: liveModel };
   }
-  // Without live mode (or for filler), authored outputs stand in and are
-  // labelled Staged example. They can never lower the class: the merge
-  // keeps the rule floor regardless.
+  const recorded = recordedClient(invoice.id);
+  if (recorded) return recorded;
+  // Last resort until recordings exist: authored outputs, honestly labelled
+  // Staged. They can never lower the class: the merge keeps the rule floor.
   const authored = PLACEHOLDER_OUTPUTS[invoice.id] ?? genericCleanOutput(invoice);
   return { client: async () => authored, provenance: 'staged', model: 'authored' };
 }
@@ -290,15 +323,31 @@ export const useCompany = create<CompanyState>((set, get) => {
 
       for (const invoice of toProcess) {
         const { liveMode, liveModel } = get();
-        const { client, provenance, model } = resolveClient(invoice, liveMode, liveModel);
-        const result = await runPipeline(invoice, sources, {
+        const resolved = resolveClient(invoice, liveMode, liveModel);
+        let result = await runPipeline(invoice, sources, {
           ruleset: company.ruleset,
-          aiClient: client,
-          model,
-          provenance,
-          now,
+          aiClient: resolved.client,
+          model: resolved.model,
+          provenance: resolved.provenance,
+          now: resolved.runAt ?? now,
           runId: `run_${invoice.id}_1`,
         });
+        // Live failed (limit hit, API down): fall back to the recorded run.
+        if (resolved.provenance === 'live' && result.aiRun.status === 'failed') {
+          const recorded = recordedClient(invoice.id);
+          if (recorded) {
+            result = await runPipeline(invoice, sources, {
+              ruleset: company.ruleset,
+              aiClient: recorded.client,
+              model: recorded.model,
+              provenance: 'recorded',
+              now: recorded.runAt ?? now,
+              runId: `run_${invoice.id}_2`,
+            });
+          }
+          // No recording: the failed run stands and the merge already failed
+          // closed to Uncertainty (Unavailable).
+        }
         if (invoice.state === 'received') {
           invoice.state = applyIntakeTransitions(invoice, result);
         }

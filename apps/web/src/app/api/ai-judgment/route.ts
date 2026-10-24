@@ -15,7 +15,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-const MODEL = process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-5-5';
+const MODEL = process.env.ANTHROPIC_MODEL ?? 'claude-opus-5-5';
 const MAX_PAYLOAD_BYTES = 200_000;
 const MAX_TOKENS = 1500;
 
