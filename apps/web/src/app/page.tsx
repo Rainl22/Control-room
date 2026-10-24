@@ -1,22 +1,27 @@
 'use client';
 
 import { primaryReason, type OutcomeClass } from '@control-room/core';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Header } from '@/components/Header';
 import { StatusBadge } from '@/components/StatusBadge';
-import { daysUntil, formatBase, formatDate } from '@/lib/format';
-import { attentionRows } from '@/lib/queue';
+import { daysUntil, formatBase } from '@/lib/format';
+import { attentionRows, bandFor, BAND_LABELS, type Band, type QueueRow } from '@/lib/queue';
 import { useCompany } from '@/lib/store';
 
-const CLASS_ORDER: OutcomeClass[] = ['hard_stop', 'uncertainty', 'authority'];
-const CLASS_TITLES: Record<OutcomeClass, string> = {
-  hard_stop: 'Hard stops',
-  uncertainty: 'Uncertainty',
-  authority: 'Authority',
-  routine: 'Routine',
-};
+const CLASS_CARDS: Array<{ cls: OutcomeClass; title: string }> = [
+  { cls: 'hard_stop', title: 'Hard stops' },
+  { cls: 'uncertainty', title: 'Uncertainty' },
+  { cls: 'authority', title: 'Authority' },
+];
 
+const BAND_ORDER: Band[] = ['hard_stops', 'overdue', 'due_this_week', 'later'];
+
+/**
+ * Home: the top five in the default order, grouped in bands so the order
+ * explains itself. Not a sortable surface — the full queue is.
+ */
 export default function Home() {
   const { company, processed, status, displayCurrency, init } = useCompany();
   const router = useRouter();
@@ -26,91 +31,95 @@ export default function Home() {
   }, [init]);
 
   if (!company) {
-    return <main className="p-10 text-ink-muted">Loading the company…</main>;
+    return <main className="mx-auto max-w-5xl px-6 py-8 text-ink-muted">Loading the company…</main>;
   }
 
-  const rows = attentionRows(company.invoices, processed);
-  const counts: Record<string, number> = {};
-  for (const row of rows) counts[row.finalClass] = (counts[row.finalClass] ?? 0) + 1;
-  const routineInFlight = company.invoices.filter((i) => i.state === 'ready').length;
   const today = company.settings.demoToday;
+  const rows = attentionRows(company.invoices, processed);
+  const counts: Partial<Record<OutcomeClass, number>> = {};
+  for (const row of rows) counts[row.finalClass] = (counts[row.finalClass] ?? 0) + 1;
+  const routineInFlight = company.invoices.filter(
+    (i) => i.state === 'ready' || i.state === 'payment_scheduled',
+  ).length;
+
+  const topFive = rows.slice(0, 5);
+  const bands: Array<{ band: Band; rows: QueueRow[] }> = BAND_ORDER.map((band) => ({
+    band,
+    rows: topFive.filter((row) => bandFor(row, today) === band),
+  })).filter((entry) => entry.rows.length > 0);
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-8">
       <Header />
 
       <section className="mb-8 grid grid-cols-3 gap-4">
-        {CLASS_ORDER.map((cls) => (
-          <div key={cls} className="rounded-card bg-surface p-4 shadow-card">
-            <div className="text-2xl font-semibold font-display">{counts[cls] ?? 0}</div>
+        {CLASS_CARDS.map(({ cls, title }) => (
+          <Link
+            key={cls}
+            href={`/queue?class=${cls}`}
+            className="rounded-card bg-surface p-4 shadow-card transition-shadow hover:shadow-md"
+          >
+            <div className="font-display text-2xl font-semibold">{counts[cls] ?? 0}</div>
             <div className="mt-1">
               <StatusBadge outcomeClass={cls} />
             </div>
-            <div className="mt-1 text-xs text-ink-muted">{CLASS_TITLES[cls]}</div>
-          </div>
+            <div className="mt-1 text-xs text-ink-muted">{title}</div>
+          </Link>
         ))}
       </section>
 
       <section className="rounded-card bg-surface shadow-card">
-        <div className="border-b border-canvas px-5 py-3 text-sm font-medium">
-          Needs attention {status === 'processing' ? '· processing intake…' : ''}
+        <div className="flex items-baseline justify-between border-b border-canvas px-5 py-3">
+          <span className="text-sm font-medium">
+            Needs attention {status === 'processing' ? '· processing intake…' : ''}
+          </span>
+          <Link href="/queue" className="text-xs text-ink-muted hover:text-ink">
+            Full queue ({rows.length}) →
+          </Link>
         </div>
-        <table className="w-full text-[13px]">
-          <thead>
-            <tr className="text-left text-xs text-ink-muted">
-              <th className="px-5 py-2 font-medium">Class</th>
-              <th className="px-2 py-2 font-medium">Invoice</th>
-              <th className="px-2 py-2 font-medium">Supplier</th>
-              <th className="px-2 py-2 font-medium">Why</th>
-              <th className="px-2 py-2 font-medium">Due</th>
-              <th className="px-5 py-2 text-right font-medium">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(({ invoice, finalClass, record }) => {
-              const reasons = record.result.merge.reasons;
-              const primary = primaryReason(reasons);
-              const more = reasons.length - 1;
-              const supplier = company.suppliers.find((s) => s.id === invoice.supplierId);
-              const due = daysUntil(invoice.dueDate, today);
-              return (
-                <tr
-                  key={invoice.id}
-                  onClick={() => router.push(`/invoice/${invoice.id}`)}
-                  className="cursor-pointer border-t border-canvas hover:bg-canvas/60"
-                >
-                  <td className="px-5 py-3">
-                    <StatusBadge outcomeClass={finalClass} kind={primary?.kind} />
-                  </td>
-                  <td className="px-2 py-3 font-mono text-xs">{invoice.invoiceNumber}</td>
-                  <td className="px-2 py-3">{supplier?.name}</td>
-                  <td className="max-w-72 px-2 py-3 text-ink-muted">
-                    {primary?.description}
-                    {more > 0 ? <span className="ml-1 text-xs">+{more} more</span> : null}
-                  </td>
-                  <td className={`px-2 py-3 ${due < 0 ? 'font-medium text-hardstop' : ''}`}>
-                    {due < 0 ? `${-due}d overdue` : `in ${due}d`}
-                  </td>
-                  <td className="px-5 py-3 text-right font-mono text-xs">
-                    {formatBase(invoice.totalBaseCents, displayCurrency, company.settings)}
-                  </td>
-                </tr>
-              );
-            })}
-            {rows.length === 0 && status === 'ready' ? (
-              <tr>
-                <td colSpan={6} className="px-5 py-8 text-center text-ink-muted">
-                  Nothing needs attention.
-                </td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
+        {bands.map(({ band, rows: bandRows }) => (
+          <div key={band}>
+            <div className="bg-canvas/60 px-5 py-1.5 text-xs font-medium text-ink-muted">{BAND_LABELS[band]}</div>
+            <ul>
+              {bandRows.map(({ invoice, finalClass, record }) => {
+                const reasons = record.result.merge.reasons;
+                const primary = primaryReason(reasons);
+                const supplier = company.suppliers.find((s) => s.id === invoice.supplierId);
+                const due = daysUntil(invoice.dueDate, today);
+                return (
+                  <li key={invoice.id}>
+                    <button
+                      type="button"
+                      onClick={() => router.push(`/invoice/${invoice.id}`)}
+                      className="flex w-full items-center gap-3 border-t border-canvas px-5 py-3 text-left text-[13px] hover:bg-canvas/60"
+                    >
+                      <span className="w-44 flex-none">
+                        <StatusBadge outcomeClass={finalClass} kind={primary?.kind} />
+                      </span>
+                      <span className="w-24 flex-none font-mono text-xs">{invoice.invoiceNumber}</span>
+                      <span className="w-48 flex-none truncate">{supplier?.name}</span>
+                      <span className="flex-1 truncate text-ink-muted">{primary?.description}</span>
+                      <span className={`w-24 flex-none ${due < 0 ? 'font-medium text-hardstop' : ''}`}>
+                        {due < 0 ? `${-due}d overdue` : `in ${due}d`}
+                      </span>
+                      <span className="w-28 flex-none text-right font-mono text-xs">
+                        {formatBase(invoice.totalBaseCents, displayCurrency, company.settings)}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+        {rows.length === 0 && status === 'ready' ? (
+          <p className="px-5 py-8 text-center text-[13px] text-ink-muted">Nothing needs attention.</p>
+        ) : null}
       </section>
 
       <p className="mt-4 text-xs text-ink-muted">
         {routineInFlight} routine invoices are proceeding on their own. Routine work never enters the queue; it
-        stays visible in history.
+        stays visible in <Link href="/history" className="underline hover:text-ink">history</Link>.
       </p>
     </main>
   );

@@ -21,7 +21,7 @@ export function Header() {
             Control Room
           </Link>
           <nav className="flex gap-3 text-xs text-ink-muted">
-            <Link href="/" className="hover:text-ink">
+            <Link href="/queue" className="hover:text-ink">
               Queue
             </Link>
             <Link href="/rules" className="hover:text-ink">
@@ -38,7 +38,7 @@ export function Header() {
       </div>
       <div className="flex items-center gap-3 text-xs">
         <span
-          className="rounded-full border border-ink-muted/30 px-2 py-0.5 text-[11px] text-ink-muted"
+          className="whitespace-nowrap rounded-full border border-ink-muted/30 px-2 py-0.5 text-[11px] text-ink-muted"
           title={liveMode ? 'Genuine fixtures run against the live model.' : 'No live model configured; AI results are authored and labelled Staged.'}
         >
           {liveMode ? 'AI: live' : 'AI: staged only'}
