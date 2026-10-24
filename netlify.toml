@@ -1,0 +1,7 @@
+# Monorepo: build the Next.js app from the workspace root.
+[build]
+  command = "npm run build --workspace @control-room/web"
+  publish = "apps/web/.next"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"

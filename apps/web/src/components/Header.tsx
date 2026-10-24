@@ -10,7 +10,7 @@ import { useCompany } from '@/lib/store';
  * are what refuse.
  */
 export function Header() {
-  const { company, currentUserId, setCurrentUser, reset, displayCurrency, setDisplayCurrency } = useCompany();
+  const { company, currentUserId, setCurrentUser, reset, displayCurrency, setDisplayCurrency, liveMode } = useCompany();
   if (!company) return null;
 
   return (
@@ -37,6 +37,12 @@ export function Header() {
         </p>
       </div>
       <div className="flex items-center gap-3 text-xs">
+        <span
+          className="rounded-full border border-ink-muted/30 px-2 py-0.5 text-[11px] text-ink-muted"
+          title={liveMode ? 'Genuine fixtures run against the live model.' : 'No live model configured; AI results are authored and labelled Staged.'}
+        >
+          {liveMode ? 'AI: live' : 'AI: staged only'}
+        </span>
         <span className="text-ink-muted">Demo today: {formatDate(company.settings.demoToday)} 2025</span>
         <select
           aria-label="Display currency"

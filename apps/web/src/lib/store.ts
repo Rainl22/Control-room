@@ -31,6 +31,7 @@ import {
 } from '@control-room/core';
 import { create } from 'zustand';
 import { deriveGates, hardStopActive, hasSignatureGate, nonSignatureGatesCleared, resolveActionId } from './gates';
+import { liveAvailability, liveClient } from './live-client';
 import { PLACEHOLDER_OUTPUTS } from './placeholder-runs';
 
 /**
@@ -57,6 +58,9 @@ interface CompanyState {
   currentUserId: string;
   displayCurrency: CurrencyCode;
   status: 'idle' | 'processing' | 'ready';
+  /** Whether the server route has an API key; detected at init. */
+  liveMode: boolean;
+  liveModel: string;
   init: () => Promise<void>;
   reset: () => Promise<void>;
   setCurrentUser: (userId: string) => void;
@@ -134,12 +138,27 @@ function genericCleanOutput(invoice: Invoice): AIOutput {
   };
 }
 
-function resolveClient(invoice: Invoice): { client: AIClient; provenance: 'live' | 'recorded' | 'staged' } {
-  const authored = stagedOutputFor(invoice.id) ?? PLACEHOLDER_OUTPUTS[invoice.id] ?? genericCleanOutput(invoice);
-  // Until live mode and genuine recordings are wired, every result is an
-  // authored output and labelled Staged example. The generic clean output can
-  // never lower the class: the merge keeps the rule floor regardless.
-  return { client: async () => authored, provenance: 'staged' };
+/**
+ * Live by default on the genuine fixtures only (brief section 14): the staged
+ * failures are always pinned, and the ~50 filler invoices never spend tokens.
+ */
+const GENUINE_FIXTURES = new Set(['inv_1187', 'inv_2041', 'inv_3302', 'inv_4410', 'inv_5075']);
+
+function resolveClient(
+  invoice: Invoice,
+  live: boolean,
+  liveModel: string,
+): { client: AIClient; provenance: 'live' | 'recorded' | 'staged'; model: string } {
+  const staged = stagedOutputFor(invoice.id);
+  if (staged) return { client: async () => staged, provenance: 'staged', model: 'authored' };
+  if (live && GENUINE_FIXTURES.has(invoice.id)) {
+    return { client: liveClient, provenance: 'live', model: liveModel };
+  }
+  // Without live mode (or for filler), authored outputs stand in and are
+  // labelled Staged example. They can never lower the class: the merge
+  // keeps the rule floor regardless.
+  const authored = PLACEHOLDER_OUTPUTS[invoice.id] ?? genericCleanOutput(invoice);
+  return { client: async () => authored, provenance: 'staged', model: 'authored' };
 }
 
 function applyIntakeTransitions(invoice: Invoice, result: PipelineResult): InvoiceState {
@@ -214,20 +233,20 @@ export const useCompany = create<CompanyState>((set, get) => {
   };
 
   /**
-   * Re-runs steps 2-6 after a context change. The authored run no longer
-   * matches the changed inputs, so without a live API the AI fails closed to
-   * Uncertainty (Unavailable) — exactly as the product would (brief §14).
-   * Once live mode is wired, this becomes a live call.
+   * Re-runs steps 2-6 after a context change. The authored outputs no longer
+   * match the changed inputs, so this runs live when live mode is available;
+   * otherwise the AI fails closed to Uncertainty (Unavailable) — exactly as
+   * the product would (brief §14).
    */
   const reprocess = async (invoice: Invoice, auditNote: string) => {
-    const { company } = get();
+    const { company, liveMode, liveModel } = get();
     const failClosed: AIClient = async () => {
       throw new Error('No live AI configured and no recorded run matches the changed inputs.');
     };
     const result = await runPipeline(invoice, toContextSources(company!), {
       ruleset: company!.ruleset,
-      aiClient: failClosed,
-      model: 'none',
+      aiClient: liveMode ? liveClient : failClosed,
+      model: liveMode ? liveModel : 'none',
       provenance: 'live',
       now: new Date().toISOString(),
       runId: nextId(`run_${invoice.id}`),
@@ -250,10 +269,14 @@ export const useCompany = create<CompanyState>((set, get) => {
     currentUserId: 'usr_dana',
     displayCurrency: 'USD',
     status: 'idle',
+    liveMode: false,
+    liveModel: 'none',
 
     init: async () => {
       if (get().status !== 'idle') return;
       set({ status: 'processing', company: buildSeed(), processed: {}, decisions: [], reviews: [], verifications: [], audit: [], ruleHistory: [], recoveryCases: [], pendingRuleChanges: [] });
+      const availability = await liveAvailability();
+      set({ liveMode: availability.live, liveModel: availability.model });
       const company = get().company!;
       const sources = toContextSources(company);
       const now = `${company.settings.demoToday}T09:00:00Z`;
@@ -266,11 +289,12 @@ export const useCompany = create<CompanyState>((set, get) => {
       );
 
       for (const invoice of toProcess) {
-        const { client, provenance } = resolveClient(invoice);
+        const { liveMode, liveModel } = get();
+        const { client, provenance, model } = resolveClient(invoice, liveMode, liveModel);
         const result = await runPipeline(invoice, sources, {
           ruleset: company.ruleset,
           aiClient: client,
-          model: 'placeholder',
+          model,
           provenance,
           now,
           runId: `run_${invoice.id}_1`,
