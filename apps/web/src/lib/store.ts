@@ -25,6 +25,7 @@ import {
   type JudgmentReview,
   type PipelineResult,
   type SeedData,
+  type SpotCheck,
   type TransitionResult,
   type User,
   type Verification,
@@ -85,12 +86,16 @@ interface CompanyState {
   changeRuleParameter: (ruleId: string, newParameters: Record<string, unknown>) => ActionResult;
   ruleHistory: RuleChangeEntry[];
   recoveryCases: RecoveryCase[];
-  reportMistake: (invoiceId: string, note: string) => Promise<ActionResult>;
+  reportMistake: (invoiceId: string, note: string, via?: 'correction' | 'spot_check') => Promise<ActionResult>;
   toggleRecoveryStep: (caseId: string, stepIndex: number) => ActionResult;
   addSupplierFact: (invoiceId: string, text: string) => ActionResult;
   pendingRuleChanges: PendingRuleChange[];
   fileRuleRequest: (ruleId: string | null, description: string) => ActionResult;
   coApproveRuleChange: (requestId: string) => ActionResult;
+  /** Phase 2: routine sampling. */
+  spotChecks: SpotCheck[];
+  spotCheckConfirm: (invoiceId: string) => ActionResult;
+  spotCheckFlag: (invoiceId: string, note: string) => Promise<ActionResult>;
 }
 
 /**
@@ -210,6 +215,51 @@ function applyIntakeTransitions(invoice: Invoice, result: PipelineResult): Invoi
 let decisionSeq = 0;
 const nextId = (prefix: string) => `${prefix}_${++decisionSeq}`;
 
+/**
+ * Phase 2 sampling (brief section 15): each week the system draws a small
+ * random sample of Routine decisions. The rate is a parameter (default 5%,
+ * minimum 3) and the sample is capped so it cannot grow into a second
+ * backlog. Sampling only observes: it never changes a class or blocks a
+ * payment. The demo seed is fixed so the walkthrough is reproducible.
+ */
+const SAMPLE_RATE = 0.05;
+const SAMPLE_MIN = 3;
+const SAMPLE_CAP = 6;
+const SAMPLE_SEED = 20251016; // the week's Thursday run date
+
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function drawSpotChecks(
+  company: SeedData,
+  processed: Record<string, ProcessedRecord>,
+): SpotCheck[] {
+  const pool = company.invoices.filter(
+    (i) =>
+      processed[i.id]?.result.merge.finalClass === 'routine' &&
+      ['ready', 'payment_scheduled', 'paid'].includes(i.state),
+  );
+  const count = Math.min(SAMPLE_CAP, Math.max(SAMPLE_MIN, Math.round(pool.length * SAMPLE_RATE)));
+  const rand = mulberry32(SAMPLE_SEED);
+  const shuffled = pool
+    .map((invoice) => ({ invoice, key: rand() }))
+    .sort((a, b) => a.key - b.key)
+    .slice(0, count);
+  return shuffled.map(({ invoice }, i) => ({
+    id: `spot_${i + 1}`,
+    invoiceId: invoice.id,
+    sampledAt: `${company.settings.demoToday}T06:00:00Z`,
+  }));
+}
+
 function refusalOf(result: TransitionResult): string {
   return result.allowed ? '' : result.refusal;
 }
@@ -298,6 +348,7 @@ export const useCompany = create<CompanyState>((set, get) => {
     ruleHistory: [],
     recoveryCases: [],
     pendingRuleChanges: [],
+    spotChecks: [],
     audit: [],
     currentUserId: 'usr_dana',
     displayCurrency: 'USD',
@@ -307,7 +358,7 @@ export const useCompany = create<CompanyState>((set, get) => {
 
     init: async () => {
       if (get().status !== 'idle') return;
-      set({ status: 'processing', company: buildSeed(), processed: {}, decisions: [], reviews: [], verifications: [], audit: [], ruleHistory: [], recoveryCases: [], pendingRuleChanges: [] });
+      set({ status: 'processing', company: buildSeed(), processed: {}, decisions: [], reviews: [], verifications: [], audit: [], ruleHistory: [], recoveryCases: [], pendingRuleChanges: [], spotChecks: [] });
       const availability = await liveAvailability();
       set({ liveMode: availability.live, liveModel: availability.model });
       const company = get().company!;
@@ -353,11 +404,11 @@ export const useCompany = create<CompanyState>((set, get) => {
         }
         set((s) => ({ processed: { ...s.processed, [invoice.id]: { result } } }));
       }
-      set({ status: 'ready' });
+      set({ status: 'ready', spotChecks: drawSpotChecks(get().company!, get().processed) });
     },
 
     reset: async () => {
-      set({ status: 'idle', company: null, processed: {}, decisions: [], reviews: [], verifications: [], audit: [], ruleHistory: [], recoveryCases: [], pendingRuleChanges: [] });
+      set({ status: 'idle', company: null, processed: {}, decisions: [], reviews: [], verifications: [], audit: [], ruleHistory: [], recoveryCases: [], pendingRuleChanges: [], spotChecks: [] });
       await get().init();
     },
 
@@ -641,7 +692,7 @@ export const useCompany = create<CompanyState>((set, get) => {
      * opens. Either way, if the AI had judged the invoice clean, a "missed"
      * verdict is appended to the original run — which is never edited.
      */
-    reportMistake: async (invoiceId, note) => {
+    reportMistake: async (invoiceId, note, via = 'correction') => {
       const found = findInvoice(invoiceId);
       const record = get().processed[invoiceId];
       if (!found) return { ok: false, refusal: 'Unknown invoice.' };
@@ -656,7 +707,7 @@ export const useCompany = create<CompanyState>((set, get) => {
           job: 'J1',
           verdict: 'missed',
           setBy: user.id,
-          setVia: 'correction',
+          setVia: via,
           setAt: new Date().toISOString(),
         };
         set((s) => ({ reviews: [...s.reviews, review] }));
@@ -799,6 +850,49 @@ export const useCompany = create<CompanyState>((set, get) => {
         request.status = 'co_approved';
       }
       set((s) => ({ pendingRuleChanges: [...s.pendingRuleChanges] }));
+      return { ok: true };
+    },
+
+    /**
+     * Spot-check review (Phase 2): the same brief and evidence as a normal
+     * review, read-only, with two answers. Confirm is implicit agreement —
+     * no verdict record is written, exactly as the brief specifies.
+     */
+    spotCheckConfirm: (invoiceId) => {
+      const { company, currentUserId, spotChecks } = get();
+      const user = company?.users.find((u) => u.id === currentUserId);
+      if (!user || !can(user.role, 'review_spot_check')) {
+        return { ok: false, refusal: 'Spot checks are reviewed by a Manager or the CFO.' };
+      }
+      const check = spotChecks.find((c) => c.invoiceId === invoiceId && !c.outcome);
+      if (!check) return { ok: false, refusal: 'No open spot check for this invoice.' };
+      check.outcome = 'confirmed';
+      check.reviewerId = user.id;
+      logAudit(invoiceId, 'user', user.id, `Spot check: confirmed by ${user.name}.`);
+      set((s) => ({ spotChecks: [...s.spotChecks] }));
+      return { ok: true };
+    },
+
+    /**
+     * A flag opens the correction flow: the AI run receives a "missed"
+     * verdict via spot_check, and the invoice follows the reversal rules by
+     * timing — pulled back before the payment run, a recovery case after it.
+     */
+    spotCheckFlag: async (invoiceId, note) => {
+      const { company, currentUserId, spotChecks } = get();
+      const user = company?.users.find((u) => u.id === currentUserId);
+      if (!user || !can(user.role, 'review_spot_check')) {
+        return { ok: false, refusal: 'Spot checks are reviewed by a Manager or the CFO.' };
+      }
+      const check = spotChecks.find((c) => c.invoiceId === invoiceId && !c.outcome);
+      if (!check) return { ok: false, refusal: 'No open spot check for this invoice.' };
+      const result = await get().reportMistake(invoiceId, note, 'spot_check');
+      if (!result.ok) return result;
+      check.outcome = 'flagged';
+      check.reviewerId = user.id;
+      check.note = note;
+      logAudit(invoiceId, 'user', user.id, `Spot check: flagged by ${user.name}.`);
+      set((s) => ({ spotChecks: [...s.spotChecks] }));
       return { ok: true };
     },
 

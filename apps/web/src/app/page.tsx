@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Header } from '@/components/Header';
+import { SpotCheckCard } from '@/components/SpotCheckCard';
 import { StatusBadge } from '@/components/StatusBadge';
 import { daysUntil, formatBase } from '@/lib/format';
 import { attentionRows, bandFor, BAND_LABELS, type Band, type QueueRow } from '@/lib/queue';
@@ -67,6 +68,8 @@ export default function Home() {
           </Link>
         ))}
       </section>
+
+      <SpotCheckCard />
 
       <section className="rounded-card bg-surface shadow-card">
         <div className="flex items-baseline justify-between border-b border-canvas px-5 py-3">

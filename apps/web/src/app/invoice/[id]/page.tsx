@@ -27,7 +27,7 @@ const STATE_LABELS: Record<string, string> = {
 export default function InvoiceReview() {
   const { id } = useParams<{ id: string }>();
   const store = useCompany();
-  const { company, processed, decisions, verifications, recoveryCases, audit, currentUserId, displayCurrency, init } = store;
+  const { company, processed, decisions, verifications, recoveryCases, spotChecks, audit, currentUserId, displayCurrency, init } = store;
   const [note, setNote] = useState('');
   const [rejectNote, setRejectNote] = useState('');
   const [mistakeNote, setMistakeNote] = useState('');
@@ -354,6 +354,56 @@ export default function InvoiceReview() {
               ) : null}
             </section>
           ) : null}
+
+          {(() => {
+            const check = spotChecks.find((c) => c.invoiceId === id && !c.outcome);
+            const canReview = user && ['manager', 'cfo'].includes(user.role);
+            if (!check || !canReview) return null;
+            return (
+              <section className="rounded-card bg-surface p-5 shadow-card">
+                <h2 className="mb-2 text-sm font-medium">Spot check</h2>
+                <p className="mb-2 text-[12px] text-ink-muted">
+                  This Routine decision was drawn in this week&apos;s sample. Review the brief and evidence,
+                  then confirm or flag. Flagging opens the correction flow and records a &ldquo;missed&rdquo;
+                  verdict on the AI run.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => act(() => store.spotCheckConfirm(id))}
+                    className="rounded-md bg-ink px-3 py-1.5 text-xs text-white"
+                  >
+                    Confirm — looks right
+                  </button>
+                </div>
+                <div className="mt-2 flex gap-2">
+                  <input
+                    className="w-full rounded-md border border-routine-tint bg-surface px-2 py-1.5 text-[13px]"
+                    placeholder="What is wrong?"
+                    value={mistakeNote}
+                    onChange={(e) => setMistakeNote(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    disabled={!mistakeNote.trim()}
+                    onClick={async () => {
+                      setRefusal('');
+                      const r = await store.spotCheckFlag(id, mistakeNote.trim());
+                      if (!r.ok) setRefusal(r.refusal);
+                    }}
+                    className="whitespace-nowrap rounded-md border border-hardstop/40 px-3 py-1.5 text-xs text-hardstop disabled:opacity-40"
+                  >
+                    Flag
+                  </button>
+                </div>
+                {refusal ? (
+                  <div className="mt-3">
+                    <GuardRefusal refusal={refusal} />
+                  </div>
+                ) : null}
+              </section>
+            );
+          })()}
 
           {['ready', 'payment_scheduled', 'paid'].includes(invoice.state) ? (
             <section className="rounded-card bg-surface p-5 shadow-card">
