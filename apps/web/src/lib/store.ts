@@ -66,6 +66,23 @@ interface CompanyState {
   recordVerificationStep2: (invoiceId: string, outcome: 'confirmed' | 'rejected') => Promise<ActionResult>;
   changeRuleParameter: (ruleId: string, newParameters: Record<string, unknown>) => ActionResult;
   ruleHistory: RuleChangeEntry[];
+  recoveryCases: RecoveryCase[];
+  reportMistake: (invoiceId: string, note: string) => Promise<ActionResult>;
+  toggleRecoveryStep: (caseId: string, stepIndex: number) => ActionResult;
+}
+
+/**
+ * Opened when a mistake is found after money has moved. Prototype-level
+ * record: what was paid, the cause, and simulated next steps with owners.
+ */
+export interface RecoveryCase {
+  id: string;
+  invoiceId: string;
+  amountCents: number;
+  cause: string;
+  openedBy: string;
+  openedAt: string;
+  steps: Array<{ action: string; ownerId: string; done: boolean }>;
 }
 
 export interface RuleChangeEntry {
@@ -205,6 +222,7 @@ export const useCompany = create<CompanyState>((set, get) => {
     reviews: [],
     verifications: [],
     ruleHistory: [],
+    recoveryCases: [],
     audit: [],
     currentUserId: 'usr_dana',
     displayCurrency: 'USD',
@@ -212,7 +230,7 @@ export const useCompany = create<CompanyState>((set, get) => {
 
     init: async () => {
       if (get().status !== 'idle') return;
-      set({ status: 'processing', company: buildSeed(), processed: {}, decisions: [], reviews: [], verifications: [], audit: [], ruleHistory: [] });
+      set({ status: 'processing', company: buildSeed(), processed: {}, decisions: [], reviews: [], verifications: [], audit: [], ruleHistory: [], recoveryCases: [] });
       const company = get().company!;
       const sources = toContextSources(company);
       const now = `${company.settings.demoToday}T09:00:00Z`;
@@ -243,7 +261,7 @@ export const useCompany = create<CompanyState>((set, get) => {
     },
 
     reset: async () => {
-      set({ status: 'idle', company: null, processed: {}, decisions: [], reviews: [], verifications: [], audit: [], ruleHistory: [] });
+      set({ status: 'idle', company: null, processed: {}, decisions: [], reviews: [], verifications: [], audit: [], ruleHistory: [], recoveryCases: [] });
       await get().init();
     },
 
@@ -517,6 +535,111 @@ export const useCompany = create<CompanyState>((set, get) => {
           processed: { ...s.processed, [invoice.id]: { result: { ...record.result, ruleResults, merge: merged } } },
         }));
       }
+      return { ok: true };
+    },
+
+    /**
+     * Report a mistake (any role). Timing decides everything: before the
+     * payment run the invoice is pulled back, the payment recalled and the
+     * pipeline re-run; after it, nothing can be undone and a recovery case
+     * opens. Either way, if the AI had judged the invoice clean, a "missed"
+     * verdict is appended to the original run — which is never edited.
+     */
+    reportMistake: async (invoiceId, note) => {
+      const found = findInvoice(invoiceId);
+      const record = get().processed[invoiceId];
+      if (!found) return { ok: false, refusal: 'Unknown invoice.' };
+      const { invoice, user } = found;
+      const { company } = get();
+
+      const appendMissedVerdict = () => {
+        if (!record || record.result.aiRun.status !== 'succeeded') return;
+        const review: JudgmentReview = {
+          id: nextId('jr'),
+          aiRunId: record.result.aiRun.id,
+          job: 'J1',
+          verdict: 'missed',
+          setBy: user.id,
+          setVia: 'correction',
+          setAt: new Date().toISOString(),
+        };
+        set((s) => ({ reviews: [...s.reviews, review] }));
+        logAudit(invoiceId, 'user', user.id, 'AI run marked as missed (verdict appended; the run itself is unchanged).');
+      };
+
+      if (invoice.state === 'paid') {
+        const transition = attemptTransition('paid', 'recovery', { mistakeReported: true });
+        if (!transition.allowed) return { ok: false, refusal: refusalOf(transition) };
+        invoice.state = 'recovery';
+        const payment = company!.payments.find((p) => p.invoiceId === invoiceId && p.status === 'paid');
+        const supplier = company!.suppliers.find((s) => s.id === invoice.supplierId)!;
+        const manager = company!.users.find((u) => u.role === 'manager')!;
+        const recovery: RecoveryCase = {
+          id: nextId('rec'),
+          invoiceId,
+          amountCents: payment?.amountCents ?? invoice.totalBaseCents,
+          cause: note,
+          openedBy: user.id,
+          openedAt: new Date().toISOString(),
+          steps: [
+            { action: `Request a recall from ${supplier.name} (simulated)`, ownerId: manager.id, done: false },
+            { action: 'Request a recall from the bank (simulated)', ownerId: manager.id, done: false },
+            { action: 'Review how this invoice passed as Routine', ownerId: manager.id, done: false },
+          ],
+        };
+        set((s) => ({ recoveryCases: [...s.recoveryCases, recovery] }));
+        supplier.facts.push({
+          id: nextId('fact'),
+          text: `Flagged: mistaken payment on ${invoice.invoiceNumber}; recovery case open.`,
+          setBy: user.id,
+          setAt: new Date().toISOString(),
+        });
+        recordDecision(invoice, user, 'report_mistake', note);
+        logAudit(invoiceId, 'user', user.id, `Mistake reported after payment: ${note}. It cannot be undone; a recovery case is open.`);
+        appendMissedVerdict();
+        set((s) => ({ processed: { ...s.processed } }));
+        return { ok: true };
+      }
+
+      if (invoice.state === 'payment_scheduled' || invoice.state === 'ready') {
+        const correction = { scope: 'this_invoice' as const };
+        if (invoice.state === 'payment_scheduled') {
+          const transition = attemptTransition('payment_scheduled', 'checking', { beforePaymentRun: true, correction });
+          if (!transition.allowed) return { ok: false, refusal: refusalOf(transition) };
+          const payment = company!.payments.find((p) => p.invoiceId === invoiceId && p.status === 'scheduled');
+          if (payment) payment.status = 'recalled';
+        } else {
+          const transition = attemptTransition('ready', 'checking', { correction });
+          if (!transition.allowed) return { ok: false, refusal: refusalOf(transition) };
+        }
+        invoice.state = 'checking';
+        recordDecision(invoice, user, 'report_mistake', note);
+        logAudit(invoiceId, 'user', user.id, `Mistake reported before the payment run: ${note}. Pulled back; the pipeline re-runs.`);
+        appendMissedVerdict();
+        const result = await reprocess(invoice, 'Re-evaluated after the correction.');
+        const target =
+          result.merge.finalClass === 'routine' ? 'ready' : result.merge.finalClass === 'hard_stop' ? 'blocked' : 'awaiting_attention';
+        const routed = attemptTransition('checking', target, { finalClass: result.merge.finalClass });
+        invoice.state = routed.allowed ? target : 'checking';
+        set((s) => ({ processed: { ...s.processed } }));
+        return { ok: true };
+      }
+
+      return { ok: false, refusal: 'A mistake is reported on an invoice that is proceeding, scheduled or paid.' };
+    },
+
+    toggleRecoveryStep: (caseId, stepIndex) => {
+      const { company, currentUserId, recoveryCases } = get();
+      const user = company?.users.find((u) => u.id === currentUserId);
+      if (!user || !can(user.role, 'work_recovery')) {
+        return { ok: false, refusal: 'Working a recovery case needs the Manager role or above.' };
+      }
+      const recovery = recoveryCases.find((c) => c.id === caseId);
+      const step = recovery?.steps[stepIndex];
+      if (!recovery || !step) return { ok: false, refusal: 'Unknown recovery step.' };
+      step.done = !step.done;
+      logAudit(recovery.invoiceId, 'user', user.id, `Recovery step ${step.done ? 'completed' : 'reopened'}: ${step.action}`);
+      set((s) => ({ recoveryCases: [...s.recoveryCases] }));
       return { ok: true };
     },
 

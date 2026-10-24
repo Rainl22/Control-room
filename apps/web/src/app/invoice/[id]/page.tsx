@@ -27,9 +27,10 @@ const STATE_LABELS: Record<string, string> = {
 export default function InvoiceReview() {
   const { id } = useParams<{ id: string }>();
   const store = useCompany();
-  const { company, processed, decisions, verifications, audit, currentUserId, displayCurrency, init } = store;
+  const { company, processed, decisions, verifications, recoveryCases, audit, currentUserId, displayCurrency, init } = store;
   const [note, setNote] = useState('');
   const [rejectNote, setRejectNote] = useState('');
+  const [mistakeNote, setMistakeNote] = useState('');
   const [refusal, setRefusal] = useState('');
   const [resolvingReasonId, setResolvingReasonId] = useState<string | null>(null);
 
@@ -296,6 +297,81 @@ export default function InvoiceReview() {
               ) : null}
             </section>
           ) : null}
+
+          {['ready', 'payment_scheduled', 'paid'].includes(invoice.state) ? (
+            <section className="rounded-card bg-surface p-5 shadow-card">
+              <h2 className="mb-2 text-sm font-medium">Something wrong?</h2>
+              <p className="mb-2 text-[12px] text-ink-muted">
+                {invoice.state === 'paid'
+                  ? 'This invoice has been paid. A mistake cannot be undone — reporting it opens a recovery case.'
+                  : 'Reporting a mistake pulls this invoice back before the payment run and re-runs the checks.'}
+              </p>
+              <div className="flex gap-2">
+                <input
+                  className="w-full rounded-md border border-routine-tint bg-surface px-2 py-1.5 text-[13px]"
+                  placeholder="What is wrong?"
+                  value={mistakeNote}
+                  onChange={(e) => setMistakeNote(e.target.value)}
+                />
+                <button
+                  type="button"
+                  disabled={!mistakeNote.trim()}
+                  onClick={async () => {
+                    setRefusal('');
+                    const r = await store.reportMistake(id, mistakeNote.trim());
+                    if (!r.ok) setRefusal(r.refusal);
+                  }}
+                  className="whitespace-nowrap rounded-md border border-ink/20 px-3 py-1.5 text-xs disabled:opacity-40"
+                >
+                  Report a mistake
+                </button>
+              </div>
+              {refusal ? (
+                <div className="mt-3">
+                  <GuardRefusal refusal={refusal} />
+                </div>
+              ) : null}
+            </section>
+          ) : null}
+
+          {recoveryCases
+            .filter((c) => c.invoiceId === id)
+            .map((recovery) => (
+              <section key={recovery.id} className="rounded-card bg-surface p-5 shadow-card">
+                <h2 className="mb-2 text-sm font-medium">Recovery case</h2>
+                <p className="text-[12px] text-ink-muted">
+                  {formatBase(recovery.amountCents, displayCurrency, company.settings)} was paid and cannot be
+                  pulled back. Cause: {recovery.cause}
+                </p>
+                <ul className="mt-3 space-y-2">
+                  {recovery.steps.map((step, i) => (
+                    <li key={i} className="flex items-start gap-2 text-[13px]">
+                      <input
+                        type="checkbox"
+                        checked={step.done}
+                        onChange={() => {
+                          setRefusal('');
+                          const r = store.toggleRecoveryStep(recovery.id, i);
+                          if (!r.ok) setRefusal(r.refusal);
+                        }}
+                        className="mt-0.5"
+                      />
+                      <span className={step.done ? 'text-ink-muted line-through' : ''}>
+                        {step.action}
+                        <span className="ml-1 text-[11px] text-ink-muted">
+                          · {company.users.find((u) => u.id === step.ownerId)?.name}
+                        </span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                {refusal ? (
+                  <div className="mt-3">
+                    <GuardRefusal refusal={refusal} />
+                  </div>
+                ) : null}
+              </section>
+            ))}
 
           {invoiceAudit.length > 0 ? (
             <section className="rounded-card bg-surface p-5 shadow-card">

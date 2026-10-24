@@ -27,6 +27,9 @@ export function Header() {
             <Link href="/rules" className="hover:text-ink">
               Rules
             </Link>
+            <Link href="/history" className="hover:text-ink">
+              History
+            </Link>
           </nav>
         </div>
         <p className="text-xs text-ink-muted">
