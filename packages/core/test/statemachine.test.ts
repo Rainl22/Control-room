@@ -114,3 +114,44 @@ describe('undeclared transitions are always refused', () => {
     }
   });
 });
+
+describe('approval covers the amount AND the rules triggered', () => {
+  it('an uncertainty-only invoice can be released by an Operator within $10,000', () => {
+    const result = attemptTransition('awaiting_attention', 'approved', {
+      allGatesCleared: true,
+      approval: { role: 'operator' },
+      amountBaseCents: usd(1_860),
+      requiresSignature: false,
+    });
+    expect(result).toEqual({ allowed: true });
+  });
+
+  it('an Operator may not release an uncertainty-only invoice above $10,000', () => {
+    const result = attemptTransition('awaiting_attention', 'approved', {
+      allGatesCleared: true,
+      approval: { role: 'operator' },
+      amountBaseCents: usd(10_001),
+      requiresSignature: false,
+    });
+    expect(result.allowed).toBe(false);
+  });
+
+  it('a signature gate always takes approval limits, whatever the amount', () => {
+    const result = attemptTransition('awaiting_attention', 'approved', {
+      allGatesCleared: true,
+      approval: { role: 'operator' },
+      amountBaseCents: usd(100),
+      requiresSignature: true,
+    });
+    expect(result.allowed).toBe(false);
+  });
+
+  it('defaults to the stricter signature limits when unspecified', () => {
+    const result = attemptTransition('awaiting_attention', 'approved', {
+      allGatesCleared: true,
+      approval: { role: 'operator' },
+      amountBaseCents: usd(100),
+    });
+    expect(result.allowed).toBe(false);
+  });
+});

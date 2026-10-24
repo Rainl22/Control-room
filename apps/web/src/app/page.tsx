@@ -1,7 +1,9 @@
 'use client';
 
 import { primaryReason, type OutcomeClass } from '@control-room/core';
+import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import { Header } from '@/components/Header';
 import { StatusBadge } from '@/components/StatusBadge';
 import { daysUntil, formatBase, formatDate } from '@/lib/format';
 import { attentionRows } from '@/lib/queue';
@@ -16,7 +18,8 @@ const CLASS_TITLES: Record<OutcomeClass, string> = {
 };
 
 export default function Home() {
-  const { company, processed, status, currentUserId, displayCurrency, init } = useCompany();
+  const { company, processed, status, displayCurrency, init } = useCompany();
+  const router = useRouter();
 
   useEffect(() => {
     void init();
@@ -30,25 +33,11 @@ export default function Home() {
   const counts: Record<string, number> = {};
   for (const row of rows) counts[row.finalClass] = (counts[row.finalClass] ?? 0) + 1;
   const routineInFlight = company.invoices.filter((i) => i.state === 'ready').length;
-  const currentUser = company.users.find((u) => u.id === currentUserId);
   const today = company.settings.demoToday;
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-8">
-      <header className="mb-8 flex items-baseline justify-between">
-        <div>
-          <h1 className="font-display text-xl font-semibold">Control Room</h1>
-          <p className="text-xs text-ink-muted">
-            Harbourline Supply Co. · concept &amp; working simulation · all data synthetic
-          </p>
-        </div>
-        <div className="text-right text-xs text-ink-muted">
-          <div>
-            {currentUser?.name} · {currentUser?.role}
-          </div>
-          <div>Demo today: {formatDate(today)} 2025</div>
-        </div>
-      </header>
+      <Header />
 
       <section className="mb-8 grid grid-cols-3 gap-4">
         {CLASS_ORDER.map((cls) => (
@@ -85,7 +74,11 @@ export default function Home() {
               const supplier = company.suppliers.find((s) => s.id === invoice.supplierId);
               const due = daysUntil(invoice.dueDate, today);
               return (
-                <tr key={invoice.id} className="border-t border-canvas hover:bg-canvas/60">
+                <tr
+                  key={invoice.id}
+                  onClick={() => router.push(`/invoice/${invoice.id}`)}
+                  className="cursor-pointer border-t border-canvas hover:bg-canvas/60"
+                >
                   <td className="px-5 py-3">
                     <StatusBadge outcomeClass={finalClass} kind={primary?.kind} />
                   </td>

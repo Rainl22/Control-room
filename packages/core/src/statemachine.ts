@@ -18,6 +18,12 @@ export interface GuardContext {
   amountBaseCents?: number;
   /** An approval exists from this role (Awaiting attention -> Approved). */
   approval?: { role: Role };
+  /**
+   * The invoice carries an Authority (signature) gate, so approval limits
+   * apply. Without one, releasing the invoice is an Uncertainty resolution
+   * and the resolver limits apply instead (Operator up to $10,000).
+   */
+  requiresSignature?: boolean;
   /** Every gate on the invoice is cleared (derived from facts, never ticked). */
   allGatesCleared?: boolean;
   /** A hard-stop gate is still active. */
@@ -103,12 +109,20 @@ const TRANSITIONS: Record<string, Guard> = {
     if (!ctx.approval) return refuse('No approval exists.');
     const amount = ctx.amountBaseCents;
     if (amount === undefined) return refuse('The approval amount is unknown.');
-    if (!can(ctx.approval.role, 'approve_authority', { amountBaseCents: amount }, ctx.ruleset)) {
-      if (ctx.approval.role === 'manager') {
-        const limit = managerApprovalLimitCents(ctx.ruleset);
-        return refuse(`A Manager may approve up to $${(limit / 100).toLocaleString('en-US')}. This amount needs the CFO.`);
+    // The role must cover the amount AND the rules triggered: a signature
+    // gate takes approval limits; an uncertainty-only invoice takes the
+    // resolver limits (an Operator may release up to $10,000).
+    const requiresSignature = ctx.requiresSignature ?? true;
+    if (requiresSignature) {
+      if (!can(ctx.approval.role, 'approve_authority', { amountBaseCents: amount }, ctx.ruleset)) {
+        if (ctx.approval.role === 'manager') {
+          const limit = managerApprovalLimitCents(ctx.ruleset);
+          return refuse(`A Manager may approve up to $${(limit / 100).toLocaleString('en-US')}. This amount needs the CFO.`);
+        }
+        return refuse('This role may not approve an Authority gate.');
       }
-      return refuse('This role may not approve an Authority gate.');
+    } else if (!can(ctx.approval.role, 'resolve_uncertainty', { amountBaseCents: amount }, ctx.ruleset)) {
+      return refuse('An Operator may resolve Uncertainty up to $10,000. This amount needs a Manager.');
     }
     return allow;
   },

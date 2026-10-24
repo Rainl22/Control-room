@@ -17,5 +17,5 @@ export { SYSTEM_PROMPT, PROMPT_VERSION, buildUserPayload } from './ai/prompt';
 export { STAGED_OUTPUTS, stagedOutputFor } from './ai/staged';
 export { runPipeline } from './pipeline';
 export type { PipelineOptions, PipelineResult } from './pipeline';
-export { buildSeed, toContextSources, FIXTURE_EXPECTATIONS } from './seed/index';
+export { buildSeed, toContextSources, FIXTURE_EXPECTATIONS, addDays, thursdayOnOrBefore } from './seed/index';
 export type { SeedData, FixtureExpectation } from './seed/index';
