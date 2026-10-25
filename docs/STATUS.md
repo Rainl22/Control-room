@@ -6,7 +6,7 @@ Last updated: 2026-10-25. This file is the session-to-session handoff; update it
 
 - **Live app:** https://control-room-demo.netlify.app
 - **Netlify admin:** https://app.netlify.com/projects/control-room-demo (site id `809e6abb-6ce2-4b45-8ec6-dcba72bfb001`)
-- **Branch:** everything lives on `claude/compassionate-thompson-7xkfkx` (also the Netlify production branch; `main` is still empty). Every push auto-deploys.
+- **Branches:** `main` holds everything and is the **Netlify production branch** — every push to `main` auto-deploys. Workflow: each session develops on its own branch, and the work is merged (fast-forwarded) to `main` once the user is happy; `main` is what's live. (`claude/compassionate-thompson-7xkfkx` is the original build branch, now merged.)
 
 ## Agreed decisions
 
@@ -36,7 +36,6 @@ Last updated: 2026-10-25. This file is the session-to-session handoff; update it
 - Demo controls (brief §13): run payments now, simulate an unavailable source, mark evidence received / on-hold flow in the UI.
 - Design polish pass against brief §12 (shadows, density, remaining component states); cap effort — the design-system budget is mostly spent.
 - Case study + recorded walkthrough (Phase 1 + 2, stating which fixtures are staged) — the actual portfolio deliverable.
-- Optional tidy-up: merge the branch to `main` and flip the Netlify production branch (needs user's go-ahead).
 
 ## Working agreements
 
