@@ -16,7 +16,7 @@ Portfolio prototype: a supervision layer for AI-run accounts payable. Read `docs
 - Corrections move forward only. Past decisions are never rewritten.
 
 ## Status
-Phase 1 first (brief section 16), then Phase 2 routine sampling. `docs/POLICY.md` defines the fictional company, roster, accounts, suppliers and fixture anchors; seed data must match it. Next: types/schema, then build.
+Phases 1 and 2 are built and deployed. Read `docs/STATUS.md` for the current handoff state: links, decisions made, what is done, and what remains. `docs/POLICY.md` defines the fictional company, roster, accounts, suppliers and fixture anchors; seed data must match it.
 
 ## Commands
 - `npm test` — run all workspace tests (core: vitest)
