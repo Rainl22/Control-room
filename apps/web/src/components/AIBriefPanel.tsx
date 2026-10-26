@@ -40,7 +40,6 @@ export function AIBriefPanel({ run, evidenceById }: { run: AIRun; evidenceById: 
           <span className="text-[11px] font-medium uppercase tracking-wide text-ink-muted">
             Why this failed
           </span>
-          <RunLabel run={run} />
         </div>
         <p className="text-sm text-ink">
           The AI check didn&apos;t finish ({FAILURE_LABELS[run.failureType ?? 'error'] ?? 'unexpected error'}), so
@@ -55,7 +54,7 @@ export function AIBriefPanel({ run, evidenceById }: { run: AIRun; evidenceById: 
     <section className="rounded-card border-l-2 border-dotted border-ink-muted/40 bg-ai-surface p-5">
       <div className="mb-3 flex items-center justify-between">
         <span className="text-[11px] font-medium uppercase tracking-wide text-ink-muted">
-          AI-written · cites {citedCount} source{citedCount === 1 ? '' : 's'}
+          AI analysis · {citedCount} source{citedCount === 1 ? '' : 's'} cited
         </span>
         <RunLabel run={run} />
       </div>

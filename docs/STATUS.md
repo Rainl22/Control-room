@@ -37,7 +37,7 @@ Queue/rules pass (2026-10-26): search boxes on the queue (invoice, supplier, rea
 
 1. **Verify live mode on the deployed site** (the `temperature` fix was the last push): open INV-4410, expect a real brief labelled Live. If it fails, read Netlify → Logs → Functions.
 2. **Record genuine runs**: needs `ANTHROPIC_API_KEY` visible to the cloud session (environment settings → Network secrets; `api.anthropic.com` is directly reachable from the sandbox). Then `npm run record` writes `apps/web/src/lib/recorded-runs.json`; commit it, then delete `apps/web/src/lib/placeholder-runs.ts` usage for the genuine fixtures (recordings take precedence automatically; placeholders become dead weight once recordings exist). Note: the sandbox egress **blocks `*.netlify.app`**, so the deployed site cannot be tested from the session — the user tests it.
-3. **Open decision (user to pick):** wording of the AI panel label. Current: "AI-written · cites N sources" (verbatim from brief §12). Recommended alternative (b): "AI analysis · N sources cited". Do not change until the user picks.
+3. AI panel label decided 2026-10-26: "AI analysis · N sources cited" (deviates from brief §12 wording on purpose). The failed-run card ("Why this failed") no longer shows a provenance pill — nothing was AI-written there. Pending: user wants a restyle of the AI analysis card (sand tint has too little contrast against the canvas); a proposal was made, awaiting pick.
 
 ## Remaining backlog (in rough order)
 
