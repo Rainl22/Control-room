@@ -57,14 +57,27 @@ const LABELS: Record<OutcomeClass, string> = {
   hard_stop: 'Blocked',
 };
 
-export function StatusBadge({ outcomeClass, kind }: { outcomeClass: OutcomeClass; kind?: ReasonKind }) {
-  const kindSuffix = outcomeClass === 'uncertainty' && kind ? ` · ${KIND_LABEL[kind]}` : '';
+/**
+ * `compact` is for dense lists: an Uncertainty pill shows just its kind
+ * ("Conflict", "Unavailable"). The triangle and amber tint still carry the class.
+ */
+export function StatusBadge({
+  outcomeClass,
+  kind,
+  compact = false,
+}: {
+  outcomeClass: OutcomeClass;
+  kind?: ReasonKind;
+  compact?: boolean;
+}) {
+  const shortKind = compact && outcomeClass === 'uncertainty' && kind;
+  const kindSuffix = !shortKind && outcomeClass === 'uncertainty' && kind ? ` · ${KIND_LABEL[kind]}` : '';
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${STYLES[outcomeClass]}`}
+      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${STYLES[outcomeClass]}`}
     >
       <Shape outcomeClass={outcomeClass} />
-      {LABELS[outcomeClass]}
+      {shortKind ? KIND_LABEL[kind as ReasonKind] : LABELS[outcomeClass]}
       {kindSuffix}
     </span>
   );

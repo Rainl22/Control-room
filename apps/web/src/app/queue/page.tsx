@@ -18,12 +18,34 @@ const CLASS_FILTERS: Array<{ value: OutcomeClass | 'all'; label: string }> = [
   { value: 'authority', label: 'Authority' },
 ];
 
+/** Shared by the header row and every body table so columns line up. */
+function Cols() {
+  return (
+    <colgroup>
+      <col className="w-44" />
+      <col className="w-28" />
+      <col className="w-52" />
+      <col />
+      <col className="w-28" />
+      <col className="w-32" />
+    </colgroup>
+  );
+}
+
+const CLASS_GROUP_LABEL: Record<string, string> = {
+  hard_stop: 'Hard stops',
+  uncertainty: 'Uncertainty',
+  authority: 'Authority',
+  routine: 'Routine',
+};
+
 function QueueTable({ rows, today }: { rows: QueueRow[]; today: string }) {
   const { company, displayCurrency } = useCompany();
   const router = useRouter();
   if (!company) return null;
   return (
-    <table className="w-full text-[13px]">
+    <table className="w-full table-fixed text-[13px]">
+      <Cols />
       <tbody>
         {rows.map(({ invoice, finalClass, record }) => {
           const reasons = record.result.merge.reasons;
@@ -38,11 +60,11 @@ function QueueTable({ rows, today }: { rows: QueueRow[]; today: string }) {
               className="cursor-pointer border-t border-canvas hover:bg-canvas/60"
             >
               <td className="px-5 py-3">
-                <StatusBadge outcomeClass={finalClass} kind={primary?.kind} />
+                <StatusBadge outcomeClass={finalClass} kind={primary?.kind} compact />
               </td>
-              <td className="px-2 py-3 font-mono text-xs">{invoice.invoiceNumber}</td>
+              <td className="whitespace-nowrap px-2 py-3 font-mono text-xs">{invoice.invoiceNumber}</td>
               <td className="px-2 py-3">{supplier?.name}</td>
-              <td className="max-w-72 px-2 py-3 text-ink-muted">
+              <td className="px-2 py-3 text-ink-muted">
                 {primary?.description}
                 {more > 0 ? <span className="ml-1 text-xs">+{more} more</span> : null}
               </td>
@@ -69,6 +91,7 @@ function QueuePageInner() {
     (searchParams.get('class') as OutcomeClass) ?? 'all',
   );
   const [groupBy, setGroupBy] = useState<GroupBy>('none');
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     void init();
@@ -91,6 +114,21 @@ function QueuePageInner() {
   const today = company.settings.demoToday;
   let rows = attentionRows(company.invoices, processed);
   if (classFilter !== 'all') rows = rows.filter((r) => r.finalClass === classFilter || r.finalClass === 'hard_stop');
+  const needle = search.trim().toLowerCase();
+  if (needle) {
+    rows = rows.filter(({ invoice, record }) => {
+      const reasons = record.result.merge.reasons;
+      const haystack = [
+        invoice.invoiceNumber,
+        supplierName(invoice.supplierId),
+        ...reasons.map((r) => r.description),
+        ...reasons.map((r) => r.sourceId),
+      ]
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(needle);
+    });
+  }
   if (sortKey) rows = sortedRows(rows, sortKey, direction, supplierName);
 
   const groups: Array<{ label: string | null; rows: QueueRow[] }> = [];
@@ -99,7 +137,7 @@ function QueuePageInner() {
   } else {
     const byKey = new Map<string, QueueRow[]>();
     for (const row of rows) {
-      const key = groupBy === 'class' ? row.finalClass : supplierName(row.invoice.supplierId);
+      const key = groupBy === 'class' ? (CLASS_GROUP_LABEL[row.finalClass] ?? row.finalClass) : supplierName(row.invoice.supplierId);
       if (!byKey.has(key)) byKey.set(key, []);
       byKey.get(key)!.push(row);
     }
@@ -166,20 +204,33 @@ function QueuePageInner() {
           )}
         </div>
       </div>
+      <input
+        type="search"
+        aria-label="Search the queue"
+        placeholder="Search by invoice, supplier or reason"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="mb-3 w-full rounded-lg border border-routine-tint bg-surface px-3 py-2 text-[13px] placeholder:text-ink-muted/70"
+      />
       <p className="mb-3 text-xs text-ink-muted">
         Smart order: hard stops pinned, then due date, then amount. Hard stops stay pinned above any sort or
         grouping you apply.
       </p>
 
       <section className="rounded-card bg-surface shadow-card">
-        <div className="flex border-b border-canvas px-5 py-2.5 text-xs text-ink-muted">
-          <span className="w-44">{header('class', 'Class')}</span>
-          <span className="w-24">Invoice</span>
-          <span className="w-48">{header('supplier', 'Supplier')}</span>
-          <span className="flex-1">Why</span>
-          <span className="w-24">{header('due', 'Due')}</span>
-          <span className="w-28 text-right">{header('amount', 'Amount')}</span>
-        </div>
+        <table className="w-full table-fixed text-xs text-ink-muted">
+          <Cols />
+          <thead>
+            <tr className="text-left">
+              <th className="px-5 py-2.5 text-left font-normal">{header('class', 'Class')}</th>
+              <th className="px-2 py-2.5 text-left font-normal">Invoice</th>
+              <th className="px-2 py-2.5 text-left font-normal">{header('supplier', 'Supplier')}</th>
+              <th className="px-2 py-2.5 text-left font-normal">Why</th>
+              <th className="px-2 py-2.5 text-left font-normal">{header('due', 'Due')}</th>
+              <th className="px-5 py-2.5 text-right font-normal">{header('amount', 'Amount')}</th>
+            </tr>
+          </thead>
+        </table>
         {groups.map((group) => (
           <div key={group.label ?? 'all'}>
             {group.label ? (
@@ -189,7 +240,7 @@ function QueuePageInner() {
           </div>
         ))}
         {rows.length === 0 && status === 'ready' ? (
-          <p className="px-5 py-8 text-center text-[13px] text-ink-muted">Nothing needs attention.</p>
+          <p className="px-5 py-8 text-center text-[13px] text-ink-muted">{needle ? `No invoices match “${search.trim()}”.` : 'Nothing needs attention.'}</p>
         ) : null}
       </section>
     </main>

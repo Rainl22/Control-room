@@ -103,7 +103,7 @@ export default function Home() {
                       className="flex w-full items-center gap-3 border-t border-canvas px-5 py-3 text-left text-[13px] hover:bg-canvas/60"
                     >
                       <span className="w-44 flex-none">
-                        <StatusBadge outcomeClass={finalClass} kind={primary?.kind} />
+                        <StatusBadge outcomeClass={finalClass} kind={primary?.kind} compact />
                       </span>
                       <span className="w-24 flex-none font-mono text-xs">{invoice.invoiceNumber}</span>
                       <span className="w-48 flex-none truncate">{supplier?.name}</span>

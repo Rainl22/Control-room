@@ -41,6 +41,13 @@ function paramDisplay(rule: Rule): string {
   return '—';
 }
 
+const CLASS_NAMES = {
+  routine: 'routine',
+  authority: 'needs your signature authority',
+  uncertainty: 'needs interpretation uncertainty',
+  hard_stop: 'blocked hard stop',
+} as const;
+
 function RuleCard({ rule }: { rule: Rule }) {
   const store = useCompany();
   const { company, currentUserId, ruleHistory, pendingRuleChanges } = store;
@@ -113,6 +120,15 @@ function RuleCard({ rule }: { rule: Rule }) {
             <p className="mt-1 text-[11px] text-ink-muted">
               Cannot be disabled or loosened here. A change needs a Manager and the CFO to co-approve, and the
               requester cannot co-approve.
+            </p>
+          ) : !config || rule.id === 'R12' ? (
+            <p className="mt-1 text-[11px] text-ink-muted">
+              No adjustable settings. Changing how this rule works is a developer change.
+            </p>
+          ) : !editable ? (
+            <p className="mt-1 text-[11px] text-ink-muted">
+              Settings can be edited by {rule.editableBy === 'manager_or_cfo' ? 'a Manager or the CFO' : 'the CFO'}. You
+              are acting as {user.role}.
             </p>
           ) : null}
         </div>
@@ -356,6 +372,7 @@ function NewLogicCard() {
 
 export default function RulesPage() {
   const { company, init } = useCompany();
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     void init();
@@ -370,6 +387,13 @@ export default function RulesPage() {
     );
   }
 
+  const needle = search.trim().toLowerCase();
+  const rules = company.ruleset.rules.filter(
+    (rule) =>
+      !needle ||
+      [rule.id, rule.statement, CLASS_NAMES[rule.outcomeClass], rule.locked ? 'locked' : ''].join(' ').toLowerCase().includes(needle),
+  );
+
   return (
     <main className="mx-auto max-w-5xl px-6 py-8">
       <Header />
@@ -380,11 +404,22 @@ export default function RulesPage() {
           is a developer change. Policy is always shown in USD.
         </p>
       </div>
+      <input
+        type="search"
+        aria-label="Search rules"
+        placeholder="Search by rule ID or wording"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="mb-4 w-full rounded-lg border border-routine-tint bg-surface px-3 py-2 text-[13px] placeholder:text-ink-muted/70"
+      />
       <div className="space-y-4">
-        {company.ruleset.rules.map((rule) => (
+        {rules.map((rule) => (
           <RuleCard key={rule.id} rule={rule} />
         ))}
-        <NewLogicCard />
+        {rules.length === 0 ? (
+          <p className="py-6 text-center text-[13px] text-ink-muted">No rules match “{search.trim()}”.</p>
+        ) : null}
+        {!needle ? <NewLogicCard /> : null}
       </div>
     </main>
   );

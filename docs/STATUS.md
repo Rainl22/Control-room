@@ -31,6 +31,8 @@ Done: loading state (spinner + skeleton, header shell stays visible) on every sc
 
 **Deliberately not done (user's call):** (4) app rename — decided 2026-10-26: the product's display name is **AProve** (header wordmark + browser tab title only). "Control Room" remains the internal/project name (repo, packages, docs, CLAUDE.md). Header (2026-10-26): hamburger menu beside the wordmark holds Currency / Role (hover or click the chevron for choices) and Reset demo; AProve wordmark is the home link; the three view tabs are centred below; AI pill on the right; the demo-date and subtitle copy were removed. (9) "?" tooltips on cards (Rule results, Gates, class badges, evidence) — discussed and recommended (2-sentence copy kept in one data file, keyboard/tap accessible, link to Rules page) but not built; do as a separate pass after naming.
 
+Queue/rules pass (2026-10-26): search boxes on the queue (invoice, supplier, reason) and rules (ID, wording, class, "locked"); uncertainty pills in lists are one word via `StatusBadge compact` ("Conflict", "Unavailable"; class still carried by triangle + amber); queue header and rows share one fixed-column layout so nothing spills into the Invoice column; class group labels read "Hard stops / Uncertainty / Authority". Rules page now says why a card has no button: locked = Request change (Manager + CFO co-approval); unlocked = Edit for Manager/CFO only, otherwise a line says who can edit and which role you are acting as; rules with no settings say changes are a developer change.
+
 ## Immediate next steps
 
 1. **Verify live mode on the deployed site** (the `temperature` fix was the last push): open INV-4410, expect a real brief labelled Live. If it fails, read Netlify → Logs → Functions.
