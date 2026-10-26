@@ -48,7 +48,7 @@ export function Header() {
       <div>
         <div className="flex items-center gap-4">
           <Link href="/" className="font-display text-xl font-semibold hover:underline">
-            Control Room
+            AProve
           </Link>
           <Nav />
         </div>

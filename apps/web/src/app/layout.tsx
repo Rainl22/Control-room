@@ -6,7 +6,7 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const jakarta = Plus_Jakarta_Sans({ subsets: ['latin'], variable: '--font-jakarta' });
 
 export const metadata: Metadata = {
-  title: 'Control Room',
+  title: 'AProve',
   description:
     'A supervision layer for AI-run accounts payable. Portfolio concept and working simulation; all data is synthetic.',
 };
