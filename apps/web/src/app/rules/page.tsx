@@ -11,6 +11,7 @@ import {
 import { useEffect, useState } from 'react';
 import { GuardRefusal } from '@/components/GuardRefusal';
 import { Header } from '@/components/Header';
+import { HelpTip } from '@/components/HelpTip';
 import { LoadingState } from '@/components/LoadingState';
 import { StatusBadge } from '@/components/StatusBadge';
 import { formatCents } from '@/lib/format';
@@ -61,6 +62,24 @@ function RuleCard({ rule }: { rule: Rule }) {
   const user = company!.users.find((u) => u.id === currentUserId)!;
   const config = PARAM_CONFIG[rule.id];
   const editable = !rule.locked && !!config && rule.id !== 'R12' && can(user.role, 'edit_rule_parameter', { rule });
+  const canFileRequest = can(user.role, 'file_new_logic');
+  const editorsText = rule.editableBy === 'manager_or_cfo' ? 'a Manager or the CFO' : 'the CFO';
+  const whoCanChange = rule.locked ? (
+    <>
+      <strong>Locked.</strong> Nobody edits this directly. A change needs a Manager and the CFO to both
+      approve, and whoever asked for it can&apos;t approve it.{' '}
+      {canFileRequest
+        ? `As ${user.role}, you can file a change request.`
+        : `As ${user.role}, you cannot change or request a change to this rule.`}
+    </>
+  ) : !config || rule.id === 'R12' ? (
+    <>No adjustable settings. Changing how this rule works is a developer change.</>
+  ) : (
+    <>
+      Settings can be edited by {editorsText}.{' '}
+      {editable ? 'You can edit them.' : `As ${user.role}, you can only view them.`}
+    </>
+  );
   const history = ruleHistory.filter((h) => h.ruleId === rule.id);
 
   const startEditing = () => {
@@ -107,32 +126,18 @@ function RuleCard({ rule }: { rule: Rule }) {
           <div className="flex items-center gap-2">
             <span className="font-mono text-sm">{rule.id}</span>
             <span className="text-xs text-ink-muted">v{rule.version}</span>
-            <StatusBadge outcomeClass={rule.outcomeClass} />
+            <StatusBadge outcomeClass={rule.outcomeClass} neutral />
             {rule.locked ? (
               <span className="rounded-full bg-ink px-2 py-0.5 text-[11px] text-white">Locked</span>
             ) : null}
+            <HelpTip label={`Who can change ${rule.id}`}>{whoCanChange}</HelpTip>
           </div>
           <p className="mt-1.5 text-[13px]">{rule.statement}</p>
           <p className="mt-1 text-[12px] text-ink-muted">
             {paramDisplay(rule)} · effective {rule.effectiveFrom}
           </p>
-          {rule.locked ? (
-            <p className="mt-1 text-[11px] text-ink-muted">
-              Cannot be disabled or loosened here. A change needs a Manager and the CFO to co-approve, and the
-              requester cannot co-approve.
-            </p>
-          ) : !config || rule.id === 'R12' ? (
-            <p className="mt-1 text-[11px] text-ink-muted">
-              No adjustable settings. Changing how this rule works is a developer change.
-            </p>
-          ) : !editable ? (
-            <p className="mt-1 text-[11px] text-ink-muted">
-              Settings can be edited by {rule.editableBy === 'manager_or_cfo' ? 'a Manager or the CFO' : 'the CFO'}. You
-              are acting as {user.role}.
-            </p>
-          ) : null}
         </div>
-        {rule.locked && !requesting ? (
+        {rule.locked && canFileRequest && !requesting ? (
           <button
             type="button"
             onClick={() => {
@@ -397,21 +402,24 @@ export default function RulesPage() {
   return (
     <main className="mx-auto max-w-5xl px-6 py-8">
       <Header />
-      <div className="mb-4">
+      <div className="mb-4 flex items-start justify-between gap-4">
+        <div>
         <h1 className="font-display text-lg font-semibold">Authority rules</h1>
         <p className="text-xs text-ink-muted">
           Rules are data, applied by the engine — never by the AI. People edit parameters and scope; new logic
           is a developer change. Policy is always shown in USD.
         </p>
+        </div>
+        <input
+          type="search"
+          aria-label="Search rules"
+          placeholder="Search"
+          title="Search by rule ID or wording"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-40 flex-none rounded-md border border-routine-tint bg-surface px-2 py-1 text-xs placeholder:text-ink-muted/70"
+        />
       </div>
-      <input
-        type="search"
-        aria-label="Search rules"
-        placeholder="Search by rule ID or wording"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="mb-4 w-full rounded-lg border border-routine-tint bg-surface px-3 py-2 text-[13px] placeholder:text-ink-muted/70"
-      />
       <div className="space-y-4">
         {rules.map((rule) => (
           <RuleCard key={rule.id} rule={rule} />

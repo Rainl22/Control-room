@@ -1,4 +1,5 @@
-import type { OutcomeClass, ReasonKind } from '@control-room/core';
+import { can, type OutcomeClass, type ReasonKind } from '@control-room/core';
+import { useCompany } from '@/lib/store';
 
 /**
  * Class identity (brief section 12): color means class and only class, and
@@ -65,11 +66,18 @@ export function StatusBadge({
   outcomeClass,
   kind,
   compact = false,
+  neutral = false,
 }: {
   outcomeClass: OutcomeClass;
   kind?: ReasonKind;
   compact?: boolean;
+  /** Describes the class itself (e.g. on a rule), not an action for the viewer. */
+  neutral?: boolean;
 }) {
+  const { company, currentUserId } = useCompany();
+  const role = company?.users.find((u) => u.id === currentUserId)?.role;
+  // "Your signature" only for roles that can sign at all; others see a neutral label.
+  const authorityLabel = !neutral && role && can(role, 'approve_authority', { amountBaseCents: 0 }) ? 'Needs your signature' : 'Needs a signature';
   const shortKind = compact && outcomeClass === 'uncertainty' && kind;
   const kindSuffix = !shortKind && outcomeClass === 'uncertainty' && kind ? ` · ${KIND_LABEL[kind]}` : '';
   return (
@@ -77,7 +85,7 @@ export function StatusBadge({
       className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${STYLES[outcomeClass]}`}
     >
       <Shape outcomeClass={outcomeClass} />
-      {shortKind ? KIND_LABEL[kind as ReasonKind] : LABELS[outcomeClass]}
+      {shortKind ? KIND_LABEL[kind as ReasonKind] : outcomeClass === 'authority' ? authorityLabel : LABELS[outcomeClass]}
       {kindSuffix}
     </span>
   );

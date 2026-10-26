@@ -202,16 +202,17 @@ function QueuePageInner() {
               Reset to smart order
             </button>
           )}
+        <input
+            type="search"
+            aria-label="Search the queue"
+            placeholder="Search"
+            title="Search by invoice, supplier or reason"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-40 rounded-md border border-routine-tint bg-surface px-2 py-1 placeholder:text-ink-muted/70"
+          />
         </div>
       </div>
-      <input
-        type="search"
-        aria-label="Search the queue"
-        placeholder="Search by invoice, supplier or reason"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="mb-3 w-full rounded-lg border border-routine-tint bg-surface px-3 py-2 text-[13px] placeholder:text-ink-muted/70"
-      />
       <p className="mb-3 text-xs text-ink-muted">
         Smart order: hard stops pinned, then due date, then amount. Hard stops stay pinned above any sort or
         grouping you apply.

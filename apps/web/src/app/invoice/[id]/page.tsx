@@ -240,7 +240,7 @@ export default function InvoiceReview() {
           ) : null}
 
           <section className="rounded-card bg-surface p-5 shadow-card">
-            <h2 className="mb-3 text-sm font-medium">Consequence</h2>
+            <h2 className="mb-3 text-sm font-medium">Payment impact</h2>
             <p className="text-[13px] text-ink-muted">
               Pays from <span className="text-ink">{account?.name} ···{account?.last4}</span>.
               <br />
