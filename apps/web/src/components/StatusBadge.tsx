@@ -16,10 +16,10 @@ const KIND_LABEL: Record<ReasonKind, string> = {
 function Shape({ outcomeClass }: { outcomeClass: OutcomeClass }) {
   const common = { width: 12, height: 12, 'aria-hidden': true as const };
   switch (outcomeClass) {
-    case 'routine': // outlined circle, no hue
+    case 'routine': // small solid dot, no hue — reads as a marker, not a radio button
       return (
         <svg {...common} viewBox="0 0 12 12">
-          <circle cx="6" cy="6" r="4.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
+          <circle cx="6" cy="6" r="2.5" fill="currentColor" />
         </svg>
       );
     case 'authority': // rounded square

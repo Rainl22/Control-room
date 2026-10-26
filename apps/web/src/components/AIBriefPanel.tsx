@@ -1,5 +1,5 @@
 import type { AIRun, Evidence } from '@control-room/core';
-import { EvidenceChip } from './EvidenceChip';
+import { EvidenceList } from './EvidenceChip';
 import { RunLabel } from './RunLabel';
 
 const JOB_NAMES: Record<string, string> = {
@@ -8,6 +8,13 @@ const JOB_NAMES: Record<string, string> = {
   J3: 'Missing-PO search',
   J4: 'Pattern anomaly',
   J5: 'Review brief',
+};
+
+const FAILURE_LABELS: Record<string, string> = {
+  timeout: 'it took too long',
+  error: 'it hit an error',
+  schema_invalid: 'its answer was malformed',
+  unknown_evidence: 'it cited a source it wasn’t given',
 };
 
 const ASSESSMENT_LABELS: Record<string, string> = {
@@ -31,14 +38,14 @@ export function AIBriefPanel({ run, evidenceById }: { run: AIRun; evidenceById: 
       <section className="rounded-card bg-surface p-5 shadow-card">
         <div className="mb-3 flex items-center justify-between">
           <span className="text-[11px] font-medium uppercase tracking-wide text-ink-muted">
-            System · AI run failed
+            Why this failed
           </span>
           <RunLabel run={run} />
         </div>
         <p className="text-sm text-ink">
-          The AI analysis could not be completed ({run.failureType}). The invoice fails closed to Uncertainty
-          (Unavailable) and a person must review. This is a technical failure, logged at once on the timeline —
-          not a judgment.
+          The AI check didn&apos;t finish ({FAILURE_LABELS[run.failureType ?? 'error'] ?? 'unexpected error'}), so
+          we&apos;ve held this invoice for a person to review rather than let it through unchecked. Nothing is
+          wrong with the invoice itself. The check broke, and that&apos;s noted on the timeline.
         </p>
       </section>
     );
@@ -64,11 +71,7 @@ export function AIBriefPanel({ run, evidenceById }: { run: AIRun; evidenceById: 
                   </span>{' '}
                   <span className="text-ink-muted">· {ASSESSMENT_LABELS[finding.assessment]}</span>
                   <p className="mt-0.5 text-ink-muted">{finding.description}</p>
-                  <span className="mt-1 flex flex-wrap gap-1">
-                    {finding.evidenceIds.map((id) => (
-                      <EvidenceChip key={id} id={id} evidence={evidenceById.get(id)} />
-                    ))}
-                  </span>
+                  <EvidenceList ids={finding.evidenceIds} evidenceById={evidenceById} />
                 </li>
               ))}
             </ul>

@@ -21,7 +21,7 @@ Phases 1 and 2 are built and deployed. Read `docs/STATUS.md` for the current han
 ## Commands
 - `npm test` — run all workspace tests (core: vitest)
 - `npm run typecheck` — typecheck all workspaces
-- Core package lives in `packages/core` (pure TS, no UI imports). The web app will live in `apps/web`.
+- Core package lives in `packages/core` (pure TS, no UI imports). The web app lives in `apps/web` (Next.js).
 
 ## Stack decisions (agreed with Rain)
 - Next.js (App Router) for the app; deploy target is Netlify.

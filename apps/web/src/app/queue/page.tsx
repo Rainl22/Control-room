@@ -4,6 +4,7 @@ import { primaryReason, type OutcomeClass } from '@control-room/core';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { Header } from '@/components/Header';
+import { LoadingState } from '@/components/LoadingState';
 import { StatusBadge } from '@/components/StatusBadge';
 import { daysUntil, formatBase } from '@/lib/format';
 import { attentionRows, sortedRows, type QueueRow, type SortKey } from '@/lib/queue';
@@ -79,7 +80,12 @@ function QueuePageInner() {
   }, [company]);
 
   if (!company) {
-    return <main className="mx-auto max-w-5xl px-6 py-8 text-ink-muted">Loading…</main>;
+    return (
+      <main className="mx-auto max-w-6xl px-6 py-8">
+        <Header />
+        <LoadingState />
+      </main>
+    );
   }
 
   const today = company.settings.demoToday;

@@ -1,6 +1,6 @@
 # Build status — handoff summary
 
-Last updated: 2026-10-25. This file is the session-to-session handoff; update it when milestones move.
+Last updated: 2026-10-26. This file is the session-to-session handoff; update it when milestones move.
 
 ## Links
 
@@ -24,6 +24,12 @@ Last updated: 2026-10-25. This file is the session-to-session handoff; update it
 **App (`apps/web`):** home (top five in bands + class cards + spot-check card), queue (sortable/filterable/groupable, hard stops always pinned, reset to smart order), review detail (AI brief panel with evidence chips + provenance label, rule results, gates computed from facts with open/done marks, consequence line with funding account + balance-after, role-tailored actions, back + prev/next), rules screen (editable params per role, consequence preview required before save, locked-rule co-approval with requester exclusion, new-logic requests), history, verification path (two-person, segregation enforced, sole-manager trap warned about in advance; step 2 reviews the *record* — confirming a not-confirmed outcome rejects + flags), mistake reporting (pull-back before the Thursday run / recovery case after, "missed" verdicts appended to AIRuns which are never edited), supplier-scope corrections offered after false-alarm dismissals, **Phase 2 routine sampling** (deterministic weekly sample incl. the 6a miss, confirm/flag, verdict summary with staged counted separately). All 8 scenarios of the brief are completable end to end; both scenario-6 discovery routes work.
 
 **AI provenance chain (brief §14):** live by default on the five genuine fixtures only → automatic fallback to recorded runs → authored outputs labelled Staged (temporary) → fail closed. 2b/6a/6b are pinned staged forever. Header shows "AI: live" / "AI: staged only".
+
+## UX pass 2026-10-26 (from user's live-site review)
+
+Done: loading state (spinner + skeleton, header shell stays visible) on every screen; Routine badge icon is now a small solid dot (was an outlined circle that read as a radio button); header nav is pill tabs with a home icon, active view highlighted (invoice pages keep Queue lit); detail-view back link now says "Back" and uses browser history (falls back to /queue); cited evidence renders as open-by-default accordion cards side by side with humanized labels/values instead of overlapping dark code popovers; "System · AI run failed" card retitled "Why this failed" with plain copy; Gates card retitled "What's holding this up" with human copy ("To do" / "Done", "Rule R01", "AI flagged"). The AI-unavailable reason text lives in `packages/core/src/reasons.ts`.
+
+**Deliberately not done (user's call):** (4) app rename — user will handle naming later; "Control Room" stays everywhere for now (header, `<title>`, docs). (9) "?" tooltips on cards (Rule results, Gates, class badges, evidence) — discussed and recommended (2-sentence copy kept in one data file, keyboard/tap accessible, link to Rules page) but not built; do as a separate pass after naming.
 
 ## Immediate next steps
 

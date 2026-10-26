@@ -1,14 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import type { Evidence } from '@control-room/core';
 import { AIBriefPanel } from '@/components/AIBriefPanel';
-import { EvidenceChip } from '@/components/EvidenceChip';
+import { EvidenceList } from '@/components/EvidenceChip';
 import { GateChecklist } from '@/components/GateChecklist';
 import { GuardRefusal } from '@/components/GuardRefusal';
 import { Header } from '@/components/Header';
+import { LoadingState } from '@/components/LoadingState';
 import { StatusBadge } from '@/components/StatusBadge';
 import { VerificationForm } from '@/components/VerificationForm';
 import { deriveGates, hasSignatureGate, nonSignatureGatesCleared } from '@/lib/gates';
@@ -33,6 +34,7 @@ const STATE_LABELS: Record<string, string> = {
 
 export default function InvoiceReview() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const store = useCompany();
   const { company, processed, decisions, verifications, recoveryCases, spotChecks, audit, currentUserId, displayCurrency, init } = store;
   const [note, setNote] = useState('');
@@ -59,7 +61,8 @@ export default function InvoiceReview() {
   if (!company || !invoice) {
     return (
       <main className="mx-auto max-w-6xl px-6 py-8">
-        <p className="text-ink-muted">Loading…</p>
+        <Header />
+        {!company ? <LoadingState label="Loading this invoice" /> : <p className="text-ink-muted">Invoice not found.</p>}
       </main>
     );
   }
@@ -103,6 +106,11 @@ export default function InvoiceReview() {
         }
       : null;
 
+  const goBack = () => {
+    if (window.history.length > 1) router.back();
+    else router.push('/queue');
+  };
+
   const act = (fn: () => { ok: boolean; refusal?: string }) => {
     setRefusal('');
     const outcome = fn();
@@ -114,9 +122,9 @@ export default function InvoiceReview() {
       <Header />
 
       <div className="mb-2 flex items-center justify-between text-xs">
-        <Link href="/queue" className="text-ink-muted hover:text-ink">
-          ← Queue
-        </Link>
+        <button type="button" onClick={goBack} className="text-ink-muted hover:text-ink">
+          Back
+        </button>
         {queuePosition ? (
           <span className="flex items-center gap-2 text-ink-muted">
             {queuePosition.index + 1} of {queuePosition.total} needing attention
@@ -165,11 +173,7 @@ export default function InvoiceReview() {
                     <li key={r.ruleId} className="text-[13px]">
                       <span className="font-mono text-[11px]">{r.ruleId}</span>{' '}
                       <span className="text-ink-muted">v{r.ruleVersion}</span> · {rule?.statement}
-                      <span className="mt-1 flex flex-wrap gap-1">
-                        {r.evidenceIds.map((eid) => (
-                          <EvidenceChip key={eid} id={eid} evidence={evidenceById.get(eid)} />
-                        ))}
-                      </span>
+                      <EvidenceList ids={r.evidenceIds} evidenceById={evidenceById} />
                     </li>
                   );
                 })}
@@ -212,7 +216,7 @@ export default function InvoiceReview() {
 
         <div className="space-y-6">
           <section className="rounded-card bg-surface p-5 shadow-card">
-            <h2 className="mb-3 text-sm font-medium">Gates</h2>
+            <h2 className="mb-3 text-sm font-medium">What's holding this up</h2>
             <GateChecklist gates={gates} />
           </section>
 

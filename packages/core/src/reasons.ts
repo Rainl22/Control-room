@@ -72,7 +72,7 @@ export function unavailableReason(invoice: Invoice, failureType: AIFailureType):
     kind: 'unavailable',
     class: 'uncertainty',
     rank: AI_RANK_OFFSET,
-    description: `The AI analysis could not be completed (${failureType}). A person must review.`,
+    description: `The AI check didn't finish (${failureType.replace('_', ' ')}), so nobody has a second opinion on this one. Please review it yourself.`,
     evidenceIds: [],
   };
 }

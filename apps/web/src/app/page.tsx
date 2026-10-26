@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Header } from '@/components/Header';
+import { LoadingState } from '@/components/LoadingState';
 import { SpotCheckCard } from '@/components/SpotCheckCard';
 import { StatusBadge } from '@/components/StatusBadge';
 import { daysUntil, formatBase } from '@/lib/format';
@@ -32,7 +33,12 @@ export default function Home() {
   }, [init]);
 
   if (!company) {
-    return <main className="mx-auto max-w-5xl px-6 py-8 text-ink-muted">Loading the company…</main>;
+    return (
+      <main className="mx-auto max-w-6xl px-6 py-8">
+        <Header />
+        <LoadingState />
+      </main>
+    );
   }
 
   const today = company.settings.demoToday;
