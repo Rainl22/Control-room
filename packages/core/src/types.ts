@@ -341,6 +341,8 @@ export interface Verification {
   invoiceId: string;
   step1: { userId: string; contactUsed: string; spokeTo: string; outcome: 'confirmed' | 'not_confirmed'; at: string };
   step2?: { userId: string; outcome: 'confirmed' | 'rejected'; at: string };
+  /** Set only when no Manager other than the step-1 person exists; lets the CFO perform step 2. */
+  escalatedToCfo?: { userId: string; at: string };
   createdAt: string;
 }
 

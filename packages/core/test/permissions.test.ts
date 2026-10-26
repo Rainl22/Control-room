@@ -4,6 +4,7 @@ import {
   can,
   canCoApproveLockedRuleChange,
   canPerformVerificationStep2,
+  cfoEscalationAvailable,
   lockedRuleChangeApproved,
 } from '../src/permissions';
 import { getRule, starterRuleset } from '../src/rules/catalogue';
@@ -80,10 +81,22 @@ describe('segregation rules', () => {
     expect(canPerformVerificationStep2('manager', 'usr_marcus', 'usr_marcus')).toBe(false);
   });
 
-  it('if the only Manager does step 1, nobody can complete step 2 (deliberate policy)', () => {
-    // Marcus did step 1; Dana is an operator, Elena is the CFO — neither may confirm.
+  it('with two Managers, the other Manager does step 2 and the recorder cannot', () => {
+    expect(canPerformVerificationStep2('manager', 'usr_marcus', 'usr_priya')).toBe(true);
+    expect(canPerformVerificationStep2('manager', 'usr_marcus', 'usr_marcus')).toBe(false);
     expect(canPerformVerificationStep2('operator', 'usr_marcus', 'usr_dana')).toBe(false);
+  });
+
+  it('the CFO can do step 2 only after an escalation, and escalation exists only with no other Manager', () => {
+    const two = [
+      { id: 'usr_marcus', role: 'manager' as const },
+      { id: 'usr_priya', role: 'manager' as const },
+    ];
+    const one = [{ id: 'usr_marcus', role: 'manager' as const }];
+    expect(cfoEscalationAvailable(two, 'usr_marcus')).toBe(false);
+    expect(cfoEscalationAvailable(one, 'usr_marcus')).toBe(true);
     expect(canPerformVerificationStep2('cfo', 'usr_marcus', 'usr_elena')).toBe(false);
+    expect(canPerformVerificationStep2('cfo', 'usr_marcus', 'usr_elena', { escalatedToCfo: true })).toBe(true);
   });
 
   it('the requester of a locked-rule change cannot co-approve it', () => {

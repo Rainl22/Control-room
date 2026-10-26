@@ -268,6 +268,7 @@ export default function InvoiceReview() {
                     currentUser={user!}
                     onStep1={(spokeTo, outcome) => store.recordVerificationStep1(id, spokeTo, outcome)}
                     onStep2={(decision) => store.recordVerificationStep2(id, decision)}
+                    onEscalate={() => store.escalateVerificationToCfo(id)}
                     onRefusal={setRefusal}
                   />
                 </div>

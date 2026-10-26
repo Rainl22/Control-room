@@ -10,7 +10,7 @@ describe('seed data matches docs/POLICY.md', () => {
   });
 
   it('seeds the roster, accounts and twelve suppliers', () => {
-    expect(seed.users.map((u) => u.role).sort()).toEqual(['cfo', 'manager', 'operator']);
+    expect(seed.users.map((u) => u.role).sort()).toEqual(['cfo', 'manager', 'manager', 'operator']);
     expect(seed.paymentAccounts.map((a) => a.id).sort()).toEqual(['acct_fx', 'acct_ops', 'acct_pay']);
     expect(seed.suppliers).toHaveLength(12);
     expect(seed.suppliers.filter((s) => s.status === 'unverified').map((s) => s.id)).toEqual(['sup_010']);

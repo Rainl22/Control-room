@@ -90,8 +90,30 @@ export function can(role: Role, action: PermittedAction, query: PermissionQuery 
  * the person who performs verification step 1 cannot perform step 2, and the
  * person who requests a rule change cannot co-approve it.
  */
-export function canPerformVerificationStep2(role: Role, step1UserId: string, step2UserId: string): boolean {
-  return can(role, 'verification_step2') && step1UserId !== step2UserId;
+/**
+ * Step 2 is done by a Manager other than the person who did step 1. Only when
+ * no such Manager exists may the case be escalated to the CFO, who can then
+ * perform step 2 (and never otherwise).
+ */
+export function canPerformVerificationStep2(
+  role: Role,
+  step1UserId: string,
+  step2UserId: string,
+  opts: { escalatedToCfo?: boolean } = {},
+): boolean {
+  if (step1UserId === step2UserId) return false;
+  if (role === 'cfo') return opts.escalatedToCfo === true;
+  return can(role, 'verification_step2');
+}
+
+/** Managers who could perform step 2: every Manager except the step-1 person. */
+export function eligibleStep2Managers<U extends { id: string; role: Role }>(users: U[], step1UserId: string): U[] {
+  return users.filter((u) => u.role === 'manager' && u.id !== step1UserId);
+}
+
+/** Escalating to the CFO is available only when no other Manager can do step 2. */
+export function cfoEscalationAvailable(users: Array<{ id: string; role: Role }>, step1UserId: string): boolean {
+  return eligibleStep2Managers(users, step1UserId).length === 0;
 }
 
 export function canCoApproveLockedRuleChange(role: Role, requesterUserId: string, coApproverUserId: string): boolean {

@@ -17,6 +17,7 @@ export const SETTINGS: Settings = {
 export const USERS: User[] = [
   { id: 'usr_dana', name: 'Dana Okafor', role: 'operator' },
   { id: 'usr_marcus', name: 'Marcus Reyes', role: 'manager' },
+  { id: 'usr_priya', name: 'Priya Nair', role: 'manager' },
   { id: 'usr_elena', name: 'Elena Voss', role: 'cfo' },
 ];
 

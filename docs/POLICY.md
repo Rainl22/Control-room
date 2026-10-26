@@ -4,7 +4,7 @@ Everything here is invented. This file is the single source for the synthetic co
 
 ## The company
 
-**Harbourline Supply Co.** is a 140-person regional distributor of packaging and facilities supplies, based in the US. It pays about 300 supplier invoices a month. Finance is a team of three: one operator, one manager, one CFO. That is the reason the segregation rules are few (brief section 8).
+**Harbourline Supply Co.** is a 140-person regional distributor of packaging and facilities supplies, based in the US. It pays about 300 supplier invoices a month. Finance is a team of four: one operator, two managers, one CFO. That is the reason the segregation rules are few (brief section 8).
 
 Base currency is USD. The demo "today" is fixed at **Tuesday 14 October 2025** so due dates, overdue bands and weekly payment runs stay stable. Payment runs happen on Thursdays.
 
@@ -14,9 +14,10 @@ Base currency is USD. The demo "today" is fixed at **Tuesday 14 October 2025** s
 |---|---|---|
 | Dana Okafor | Operator | Accounts payable clerk. Default user on load. Resolves Uncertainty up to $10,000. |
 | Marcus Reyes | Manager | Finance manager. Approves up to $50,000. Performs verification step 2. |
+| Priya Nair | Manager | Second finance manager. Same authority as Marcus. Exists so verification step 2 always has a reviewer other than whoever did step 1. |
 | Elena Voss | CFO | Approves any amount. Only person who can edit R08 and R11. |
 
-Only one Operator and one Manager are seeded, which shapes verification. Step 1 can be done by Dana or Marcus, but step 2 only by Marcus, and the same person cannot do both. So in the bank-change fixture Dana does step 1 and Marcus does step 2. If Marcus does step 1, nobody can complete step 2 and the case waits. The CFO cannot do either step. That is a deliberate policy choice (brief section 8), and the prototype should show it rather than hide it.
+Step 1 can be done by Dana, Marcus or Priya; step 2 only by a Manager who did not do step 1. So if Dana or Priya does step 1, Marcus does step 2, and vice versa; if Marcus does step 1, only Priya can do step 2. Step 2 can therefore never be stuck while two Managers exist. If only one Manager could ever review (no Manager other than the step-1 person), the case may be escalated to the CFO, who may then perform step 2; the CFO cannot do either step otherwise.
 
 ## Approval and control policy (summary)
 

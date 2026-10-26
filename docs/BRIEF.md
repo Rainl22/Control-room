@@ -255,7 +255,7 @@ One path serves both triggers: changed bank details (R01) and an unverified supp
 
 1.  An Operator or Manager contacts the supplier using the contact details already on the supplier record, never those printed on the invoice. They record who they spoke to, when, and the outcome: confirmed or not confirmed. In the prototype this is a short form.
 
-2.  A different person with the Manager role reviews that record and confirms or rejects it. The person who did step 1 cannot do step 2.
+2.  A different person with the Manager role reviews that record and confirms or rejects it. The person who did step 1 cannot do step 2. With two Managers on the team, the other Manager always can. If no Manager other than the step-1 person exists, the case can be escalated to the CFO, who may then perform step 2; escalation is unavailable while another Manager can do it.
 
 3.  If confirmed, the bank details are marked verified on the supplier record (and an unverified supplier becomes verified), and the invoice returns to Awaiting attention for re-evaluation. If not confirmed, the invoice is rejected and the supplier is flagged.
 
@@ -308,7 +308,7 @@ Three roles. The prototype has a role switcher in the top bar, which also demons
 | Resolve an Uncertainty reason               | Up to \$10,000 | Yes                     | Yes             |
 | Approve an Authority gate                   | No             | Up to \$50,000          | Any amount      |
 | Verification step 1 (contact the supplier)  | Yes            | Yes                     | No              |
-| Verification step 2 (confirm)               | No             | Yes                     | No              |
+| Verification step 2 (confirm)               | No             | Yes (not if they did step 1) | Only after escalation, when no other Manager can |
 | Make a supplier-scope correction            | No             | Yes                     | Yes             |
 | Edit editable rule parameters, with preview | No             | Yes, except R08 and R11 | Yes, all        |
 | Co-approve a locked-rule change             | No             | Yes (one of two)        | Yes (the other) |
@@ -316,7 +316,7 @@ Three roles. The prototype has a role switcher in the top bar, which also demons
 | File a new-logic request                    | No             | Yes                     | Yes             |
 | Work a recovery case                        | No             | Yes                     | Yes             |
 
-Two segregation rules, kept deliberately few so a three-person finance team is not deadlocked: the person who performs verification step 1 cannot perform step 2, and the person who requests a rule change cannot co-approve it.
+Two segregation rules, kept deliberately few so a small finance team is not deadlocked: the person who performs verification step 1 cannot perform step 2, and the person who requests a rule change cannot co-approve it.
 
 ## 9. Data model
 

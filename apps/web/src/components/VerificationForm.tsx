@@ -1,6 +1,13 @@
 'use client';
 
-import { can, canPerformVerificationStep2, type Supplier, type User, type Verification } from '@control-room/core';
+import {
+  can,
+  canPerformVerificationStep2,
+  cfoEscalationAvailable,
+  eligibleStep2Managers,
+  type Supplier, type User,
+  type Verification,
+} from '@control-room/core';
 import { useState } from 'react';
 import type { ActionResult } from '@/lib/store';
 
@@ -11,6 +18,7 @@ interface Props {
   currentUser: User;
   onStep1: (spokeTo: string, outcome: 'confirmed' | 'not_confirmed') => ActionResult;
   onStep2: (decision: 'confirmed' | 'rejected') => Promise<ActionResult>;
+  onEscalate: () => ActionResult;
   onRefusal: (refusal: string) => void;
 }
 
@@ -21,12 +29,11 @@ interface Props {
  * with the Manager role reviews the record in step 2. The card shows only
  * what the current person can actually do; the guards still enforce it.
  */
-export function VerificationForm({ supplier, verification, users, currentUser, onStep1, onStep2, onRefusal }: Props) {
+export function VerificationForm({ supplier, verification, users, currentUser, onStep1, onStep2, onEscalate, onRefusal }: Props) {
   const [spokeTo, setSpokeTo] = useState('');
   const [outcome, setOutcome] = useState<'confirmed' | 'not_confirmed'>('confirmed');
 
   const nameOf = (id: string) => users.find((u) => u.id === id)?.name ?? id;
-  const managers = users.filter((u) => u.role === 'manager');
 
   if (verification?.step2) {
     return (
@@ -41,7 +48,11 @@ export function VerificationForm({ supplier, verification, users, currentUser, o
   // --- Step 2: a record is awaiting review ---
   if (verification) {
     const supplierConfirmed = verification.step1.outcome === 'confirmed';
-    const eligible = canPerformVerificationStep2(currentUser.role, verification.step1.userId, currentUser.id);
+    const eligible = canPerformVerificationStep2(currentUser.role, verification.step1.userId, currentUser.id, {
+      escalatedToCfo: !!verification.escalatedToCfo,
+    });
+    const otherManagers = eligibleStep2Managers(users, verification.step1.userId);
+    const canEscalate = cfoEscalationAvailable(users, verification.step1.userId) && !verification.escalatedToCfo;
     const isRecorder = verification.step1.userId === currentUser.id;
 
     return (
@@ -88,16 +99,34 @@ export function VerificationForm({ supplier, verification, users, currentUser, o
             </div>
           </>
         ) : (
-          <p className="rounded-md bg-routine-tint px-3 py-2 text-[12px] text-ink-muted">
-            {isRecorder
-              ? 'You recorded step 1, so you cannot perform step 2 — and with one Manager on the team, this case now waits. That is a deliberate policy choice; the supervision system shows it rather than hides it.'
-              : 'Step 2 needs a Manager who did not record step 1. Waiting on ' +
-                managers
-                  .filter((m) => m.id !== verification.step1.userId)
-                  .map((m) => m.name)
-                  .join(', ') +
-                (managers.every((m) => m.id === verification.step1.userId) ? 'nobody — the only Manager recorded step 1.' : '.')}
-          </p>
+          <div className="space-y-2 rounded-md bg-routine-tint px-3 py-2 text-[12px] text-ink-muted">
+            {otherManagers.length > 0 ? (
+              <p>
+                {isRecorder ? 'You recorded step 1, so you cannot also perform step 2. ' : ''}
+                Step 2 is for {otherManagers.map((m) => m.name).join(' or ')}, a Manager who did not record step 1.
+              </p>
+            ) : verification.escalatedToCfo ? (
+              <p>Escalated to the CFO: no other Manager can review this record.</p>
+            ) : (
+              <>
+                <p>
+                  No other Manager can review this record, so it can be escalated to the CFO to perform step 2.
+                </p>
+                {canEscalate && currentUser.role !== 'cfo' ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const r = onEscalate();
+                      if (!r.ok) onRefusal(r.refusal);
+                    }}
+                    className="rounded-md border border-ink/20 bg-surface px-3 py-1.5 text-xs text-ink"
+                  >
+                    Escalate to CFO
+                  </button>
+                ) : null}
+              </>
+            )}
+          </div>
         )}
       </div>
     );
@@ -107,13 +136,14 @@ export function VerificationForm({ supplier, verification, users, currentUser, o
   if (!can(currentUser.role, 'verification_step1')) {
     return (
       <p className="rounded-md bg-routine-tint px-3 py-2 text-[12px] text-ink-muted">
-        Step 1 is performed by an Operator or a Manager — the CFO does neither verification step. Switch role to
-        Dana (Operator) or Marcus (Manager) to record the call.
+        Step 1 is performed by an Operator or a Manager. The CFO reviews a record at step 2 only if it is escalated.
+        Switch role to an Operator or a Manager to record the call.
       </p>
     );
   }
 
-  const soleManagerTrap = currentUser.role === 'manager' && managers.length === 1;
+  const otherManagersForNewCase = users.filter((u) => u.role === 'manager' && u.id !== currentUser.id);
+  const soleManager = currentUser.role === 'manager' && otherManagersForNewCase.length === 0;
 
   return (
     <div className="space-y-2 text-[13px]">
@@ -122,10 +152,10 @@ export function VerificationForm({ supplier, verification, users, currentUser, o
         <span className="font-mono text-xs text-ink">{supplier.verifiedContact.phone}</span> (
         {supplier.verifiedContact.name}). Never use contact details printed on the invoice.
       </p>
-      {soleManagerTrap ? (
+      {soleManager ? (
         <p className="rounded-md bg-uncertainty-tint px-3 py-2 text-[12px] text-uncertainty">
-          You are the only Manager. If you record step 1 yourself, nobody can perform step 2 and this case will
-          wait. Consider letting Dana (Operator) make the call instead.
+          You are the only Manager. If you record step 1 yourself, the review will have to be escalated to the CFO.
+          Consider letting an Operator make the call instead.
         </p>
       ) : null}
       <input

@@ -6,6 +6,7 @@ import {
   can,
   canCoApproveLockedRuleChange,
   canPerformVerificationStep2,
+  cfoEscalationAvailable,
   lockedRuleChangeApproved,
   evaluate,
   evidenceId,
@@ -83,6 +84,7 @@ interface CompanyState {
   reject: (invoiceId: string, reasonText: string) => ActionResult;
   recordVerificationStep1: (invoiceId: string, spokeTo: string, outcome: 'confirmed' | 'not_confirmed') => ActionResult;
   recordVerificationStep2: (invoiceId: string, outcome: 'confirmed' | 'rejected') => Promise<ActionResult>;
+  escalateVerificationToCfo: (invoiceId: string) => ActionResult;
   changeRuleParameter: (ruleId: string, newParameters: Record<string, unknown>) => ActionResult;
   ruleHistory: RuleChangeEntry[];
   recoveryCases: RecoveryCase[];
@@ -536,6 +538,29 @@ export const useCompany = create<CompanyState>((set, get) => {
     },
 
     /**
+     * Escalate a step-2 review to the CFO. Allowed only when no Manager other
+     * than the step-1 person exists, so a review can never be stuck, and the
+     * CFO is never a casual alternative to a second Manager.
+     */
+    escalateVerificationToCfo: (invoiceId) => {
+      const found = findInvoice(invoiceId);
+      if (!found) return { ok: false, refusal: 'Unknown invoice.' };
+      const { user } = found;
+      const { company, verifications } = get();
+      const verification = verifications.find((v) => v.invoiceId === invoiceId && !v.step2);
+      if (!verification) return { ok: false, refusal: 'No step-1 record is awaiting confirmation.' };
+      if (user.role === 'cfo') return { ok: false, refusal: 'The CFO receives an escalation; someone else must raise it.' };
+      if (!cfoEscalationAvailable(company!.users, verification.step1.userId)) {
+        return { ok: false, refusal: 'Another Manager can perform step 2, so this cannot be escalated to the CFO.' };
+      }
+      if (verification.escalatedToCfo) return { ok: false, refusal: 'Already escalated to the CFO.' };
+      verification.escalatedToCfo = { userId: user.id, at: new Date().toISOString() };
+      set((s) => ({ verifications: [...s.verifications] }));
+      logAudit(invoiceId, 'user', user.id, `${user.name} escalated the step-2 review to the CFO: no other Manager is available.`);
+      return { ok: true };
+    },
+
+    /**
      * Verification step 2: a different person with the Manager role reviews
      * the step-1 RECORD and confirms or rejects it. What a confirmed record
      * then does depends on what step 1 found:
@@ -553,13 +578,15 @@ export const useCompany = create<CompanyState>((set, get) => {
       const { company, verifications } = get();
       const verification = verifications.find((v) => v.invoiceId === invoiceId && !v.step2);
       if (!verification) return { ok: false, refusal: 'No step-1 record is awaiting confirmation.' };
-      if (!canPerformVerificationStep2(user.role, verification.step1.userId, user.id)) {
+      if (!canPerformVerificationStep2(user.role, verification.step1.userId, user.id, { escalatedToCfo: !!verification.escalatedToCfo })) {
         return {
           ok: false,
           refusal:
             verification.step1.userId === user.id
-              ? 'The person who performed step 1 cannot perform step 2. With one Manager on the team, this case now waits — a deliberate policy choice.'
-              : 'Verification step 2 needs the Manager role.',
+              ? 'The person who performed step 1 cannot perform step 2. Another Manager must review this record.'
+              : user.role === 'cfo'
+                ? 'The CFO can perform step 2 only after the case is escalated, which is possible only when no other Manager can do it.'
+                : 'Verification step 2 needs a Manager who did not perform step 1.',
         };
       }
 
