@@ -19,6 +19,8 @@
   --color-routine-tint: #f1f3f6;
 
   --color-ai-surface: #f6f3ee;
+  /* Accent for AI-authored content only; no outcome class uses it. */
+  --color-ai: #5b45b0;
 
   --font-sans: var(--font-inter), 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-display: var(--font-jakarta), 'Plus Jakarta Sans', var(--font-inter), ui-sans-serif, system-ui, sans-serif;

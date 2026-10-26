@@ -32,7 +32,7 @@ export function AIBriefPanel({ run, evidenceById }: { run: AIRun; evidenceById: 
   const citedCount = run.output ? new Set(run.output.findings.flatMap((f) => f.evidenceIds)).size : 0;
 
   // A failed run produced no AI-written content: what follows is a system
-  // notice, rendered on a plain surface, not on the AI's sand panel.
+  // notice, rendered on a plain surface without the AI accent bar.
   if (run.status === 'failed') {
     return (
       <section className="rounded-card bg-surface p-5 shadow-card">
@@ -51,12 +51,11 @@ export function AIBriefPanel({ run, evidenceById }: { run: AIRun; evidenceById: 
   }
 
   return (
-    <section className="rounded-card border-l-2 border-dotted border-ink-muted/40 bg-ai-surface p-5">
-      <div className="mb-3 flex items-center justify-between">
-        <span className="text-[11px] font-medium uppercase tracking-wide text-ink-muted">
+    <section className="rounded-card border-l-[3px] border-ai bg-surface p-5 shadow-card">
+      <div className="mb-3">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-ai">
           AI analysis · {citedCount} source{citedCount === 1 ? '' : 's'} cited
         </span>
-        <RunLabel run={run} />
       </div>
 
       <>
@@ -76,6 +75,9 @@ export function AIBriefPanel({ run, evidenceById }: { run: AIRun; evidenceById: 
             </ul>
           ) : null}
       </>
+      <div className="mt-4 border-t border-ink/10 pt-3">
+        <RunLabel run={run} />
+      </div>
     </section>
   );
 }
